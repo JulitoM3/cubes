@@ -1,0 +1,34 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Julitom3\Cubes\Datasets\Dataset;
+use Julitom3\Cubes\Datasets\Field;
+use Julitom3\Cubes\Datasets\Relation;
+use Julitom3\Cubes\Enums\FieldFormat;
+
+class {{ class }} extends Dataset
+{
+    public function table(): string
+    {
+        return {{ table }};
+    }
+
+    /**
+     * @return list<Field>
+     */
+    public function fields(): array
+    {
+        return [{{ fields }}];
+    }
+
+    /**
+     * @return list<Relation>
+     */
+    public function relations(): array
+    {
+        return [{{ relations }}];
+    }
+}
