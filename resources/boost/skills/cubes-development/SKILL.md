@@ -26,19 +26,21 @@ Use this skill when a Laravel application needs reports, pivot tables, or a repo
 ```php
 use Julitom3\Cubes\Facades\Cubes;
 
-Cubes::report()
-    ->rows('regions.name')
-    ->columns('sales.year')
-    ->value('sales.amount', 'sum', 'Total sales')
-    ->matrix();
+Cubes::engine()
+    ->rows([['key' => 'regions.name']])
+    ->columns([['key' => 'sales.year']])
+    ->values([['key' => 'sales.amount', 'aggregation' => 'sum', 'label' => 'Total sales']])
+    ->matrixRender();
 ```
 
-- Reference fields as `dataset.field`.
-- `get()` returns flat rows, `matrix()` returns a JSON-serializable pivot table, and `toQuery()` returns the query builder.
-- For frontends, expose `Cubes::catalog()` and build reports with `Cubes::report($definition)`, where the definition has `from`, `rows`, `columns`, and `values`.
+- Every selected field is an array with a `key` such as `dataset.field`; values may add `aggregation` and `label`.
+- `get()` returns flat rows, `matrixRender()` returns a JSON-serializable pivot table, and `build()` returns the query builder.
+- `reportDefinition()` and `queryDefinition()` return the DTOs of each step; the `QueryDefinitionDto` has one DTO per SQL clause (from, selects, joins, group by, order by).
+- For drag-and-drop frontends, send `Cubes::catalog()` as the palette and pass the dropped items back to `rows()`, `columns()`, and `values()`.
 
 ## Anti-patterns
 
 - Do not build report SQL by hand; let Cubes resolve joins from the dataset relations.
+- Do not add SQL to the query builder outside the clause compilers; extend the query definition DTOs instead.
 - Do not put user input in a field `expression`; expressions are trusted SQL defined in the dataset.
-- Do not reuse a report instance for different reports; call `Cubes::report()` for each one.
+- Do not reuse an engine for different reports; call `Cubes::engine()` for each one.

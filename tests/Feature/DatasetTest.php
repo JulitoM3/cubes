@@ -30,7 +30,7 @@ it('describes the datasets with stable field keys', function () {
         ->and($catalog[2])->toMatchArray(['name' => 'sales', 'label' => 'Sales'])
         ->and($catalog[2]['fields'][0])->toBe([
             'key' => 'sales.amount',
-            'column' => 'amount',
+            'dataset' => 'sales',
             'label' => 'Amount',
             'type' => 'metric',
             'format' => 'currency',
@@ -62,7 +62,7 @@ it('registers datasets at runtime', function () {
     Cubes::register($dataset);
 
     expect(Cubes::dataset('catalog')->field('name')->label)->toBe('Name')
-        ->and(Cubes::report()->rows('catalog.name')->get()->all())->toBe([['catalog.name' => 'Widget']]);
+        ->and(Cubes::engine()->rows([['key' => 'catalog.name']])->get()->all())->toBe([['catalog.name' => 'Widget']]);
 });
 
 it('rejects classes that are not datasets', function () {

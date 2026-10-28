@@ -7,11 +7,8 @@ namespace Julitom3\Cubes;
 use Illuminate\Contracts\Container\Container;
 use Julitom3\Cubes\Datasets\Dataset;
 use Julitom3\Cubes\Datasets\DatasetRegistry;
-use Julitom3\Cubes\Reports\Report;
+use Julitom3\Cubes\Engine\ReportEngine;
 
-/**
- * @phpstan-import-type ReportDefinition from Report
- */
 class Cubes
 {
     public function __construct(
@@ -20,13 +17,11 @@ class Cubes
     ) {}
 
     /**
-     * Start a new, independent report, optionally from a serialized definition.
-     *
-     * @param  ReportDefinition  $definition
+     * Start a new, independent report.
      */
-    public function report(array $definition = []): Report
+    public function engine(): ReportEngine
     {
-        return $this->container->make(Report::class)->fill($definition);
+        return $this->container->make(ReportEngine::class);
     }
 
     /**
@@ -53,7 +48,7 @@ class Cubes
     /**
      * Describe every registered dataset and its fields, ready to send to a frontend.
      *
-     * @return list<array{name: string, label: string, fields: list<array{key: string, column: string, label: string, type: string, format: string, pivotable: bool, aggregations: list<string>}>}>
+     * @return list<array{name: string, label: string, fields: list<array{key: string, dataset: string, label: string, type: string, format: string, pivotable: bool, aggregations: list<string>}>}>
      */
     public function catalog(): array
     {

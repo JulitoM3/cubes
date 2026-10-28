@@ -6,23 +6,23 @@ namespace Julitom3\Cubes\Matrix;
 
 use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Support\Collection;
-use Julitom3\Cubes\Reports\Dimension;
-use Julitom3\Cubes\Reports\Measure;
-use Julitom3\Cubes\Reports\QueryCompiler;
-use Julitom3\Cubes\Reports\Report;
+use Julitom3\Cubes\Definitions\DTOs\DimensionDefinitionDto;
+use Julitom3\Cubes\Definitions\DTOs\ReportDefinitionDto;
+use Julitom3\Cubes\Definitions\DTOs\ValueDefinitionDto;
+use Julitom3\Cubes\Definitions\QueryDefinition;
 
 final readonly class MatrixBuilder
 {
     public function __construct(private Translator $translator) {}
 
     /**
-     * @param  Collection<int, array<string, mixed>>  $records  Query records keyed by the compiler aliases.
+     * @param  Collection<int, array<string, mixed>>  $records  Query records keyed by the query definition aliases.
      */
-    public function build(Report $report, Collection $records): Matrix
+    public function build(ReportDefinitionDto $report, Collection $records): Matrix
     {
-        $rowDimensions = $report->rowDimensions();
-        $columnDimensions = $report->columnDimensions();
-        $measures = $report->measures();
+        $rowDimensions = $report->rows;
+        $columnDimensions = $report->columns;
+        $measures = $report->values;
 
         /** @var array<string, list<mixed>> $rowKeys */
         $rowKeys = [];
@@ -42,7 +42,7 @@ final readonly class MatrixBuilder
             $columnKeys[$columnKey] ??= $columnValues;
 
             foreach (array_keys($measures) as $position) {
-                $values[$rowKey][$columnKey][$position] = $record[QueryCompiler::measureAlias($position)] ?? null;
+                $values[$rowKey][$columnKey][$position] = $record[QueryDefinition::valueAlias($position)] ?? null;
             }
         }
 
@@ -61,9 +61,9 @@ final readonly class MatrixBuilder
     }
 
     /**
-     * @param  list<Dimension>  $rowDimensions
-     * @param  list<Dimension>  $columnDimensions
-     * @param  list<Measure>  $measures
+     * @param  list<DimensionDefinitionDto>  $rowDimensions
+     * @param  list<DimensionDefinitionDto>  $columnDimensions
+     * @param  list<ValueDefinitionDto>  $measures
      * @param  list<list<mixed>>  $columnLeaves
      * @return list<list<HeaderCell>>
      */
@@ -132,7 +132,7 @@ final readonly class MatrixBuilder
     /**
      * @param  array<string, list<mixed>>  $rowKeys
      * @param  list<list<mixed>>  $columnLeaves
-     * @param  list<Measure>  $measures
+     * @param  list<ValueDefinitionDto>  $measures
      * @param  array<string, array<string, array<int, mixed>>>  $values
      * @return list<MatrixRow>
      */
@@ -175,7 +175,7 @@ final readonly class MatrixBuilder
         $values = [];
 
         for ($position = $offset; $position < $offset + $count; $position++) {
-            $values[] = $record[QueryCompiler::dimensionAlias($position)] ?? null;
+            $values[] = $record[QueryDefinition::dimensionAlias($position)] ?? null;
         }
 
         return $values;

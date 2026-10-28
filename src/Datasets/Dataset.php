@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Julitom3\Cubes\Datasets;
 
 use Illuminate\Support\Str;
-use Julitom3\Cubes\Enums\Aggregation;
 use Julitom3\Cubes\Exceptions\CubesException;
 
 abstract class Dataset
@@ -86,26 +85,29 @@ abstract class Dataset
     }
 
     /**
-     * Describe the dataset so any frontend can build a field picker.
+     * The fields as the frontend palette shows them.
      *
-     * @return array{name: string, label: string, fields: list<array{key: string, column: string, label: string, type: string, format: string, pivotable: bool, aggregations: list<string>}>}
+     * @return list<FieldPaletteDto>
+     */
+    public function palette(): array
+    {
+        return array_map(
+            fn (Field $field): FieldPaletteDto => FieldPaletteDto::createFromField($this, $field),
+            array_values($this->fieldMap()),
+        );
+    }
+
+    /**
+     * Describe the dataset so any frontend can build a field palette.
+     *
+     * @return array{name: string, label: string, fields: list<array{key: string, dataset: string, label: string, type: string, format: string, pivotable: bool, aggregations: list<string>}>}
      */
     public function toArray(): array
     {
         return [
             'name' => $this->name(),
             'label' => $this->label(),
-            'fields' => array_map(fn (Field $field): array => [
-                'key' => $this->reference($field),
-                'column' => $field->column,
-                'label' => $field->label,
-                'type' => $field->type->value,
-                'format' => $field->format->value,
-                'pivotable' => $field->pivotable,
-                'aggregations' => $field->isDimension()
-                    ? []
-                    : array_map(fn (Aggregation $aggregation): string => $aggregation->value, $field->allowedAggregations()),
-            ], array_values($this->fieldMap())),
+            'fields' => array_map(fn (FieldPaletteDto $field): array => $field->toArray(), $this->palette()),
         ];
     }
 }

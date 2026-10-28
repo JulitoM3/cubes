@@ -11,6 +11,7 @@ return [
         'field_not_found' => 'The field [:field] does not exist in the dataset [:dataset].',
         'invalid_field_reference' => 'The field reference [:reference] must use the "dataset.field" format.',
         'invalid_identifier' => 'The identifier [:identifier] may only contain letters, numbers, and underscores.',
+        'invalid_selection' => 'Every selected field must be an array with a "key", and its "aggregation" and "label" must be strings.',
         'not_a_dimension' => 'The field [:field] is a metric and cannot be used as a row or column.',
         'invalid_aggregation' => 'The aggregation [:aggregation] is not allowed for the field [:field].',
         'no_path' => 'There are no relations that connect the dataset [:from] with [:to].',

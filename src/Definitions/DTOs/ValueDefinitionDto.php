@@ -2,13 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Julitom3\Cubes\Reports;
+namespace Julitom3\Cubes\Definitions\DTOs;
 
 use Julitom3\Cubes\Datasets\Dataset;
 use Julitom3\Cubes\Datasets\Field;
 use Julitom3\Cubes\Enums\Aggregation;
 
-final readonly class Measure
+/**
+ * A field aggregated as a value of a report. The label is only displayed, never compiled to SQL.
+ */
+final readonly class ValueDefinitionDto
 {
     public function __construct(
         public Dataset $dataset,
@@ -18,7 +21,7 @@ final readonly class Measure
     ) {}
 
     /**
-     * The stable key of the measure, e.g. "sum(sales.amount)".
+     * The stable key of the value, e.g. "sum(sales.amount)".
      */
     public function key(): string
     {

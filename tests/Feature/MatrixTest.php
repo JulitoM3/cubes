@@ -26,7 +26,7 @@ function bodyValues(array $matrix): array
 }
 
 it('builds a matrix with rows only', function () {
-    $matrix = Cubes::report()->rows('regions.name')->value('sales.amount')->matrix()->toArray();
+    $matrix = Cubes::engine()->rows([['key' => 'regions.name']])->values([['key' => 'sales.amount']])->matrixRender()->toArray();
 
     expect(headerLabels($matrix))->toBe([['Region', 'Amount']])
         ->and(bodyValues($matrix))->toEqual([
@@ -37,11 +37,11 @@ it('builds a matrix with rows only', function () {
 });
 
 it('aligns the cells with the column headers, leaving missing combinations empty', function () {
-    $matrix = Cubes::report()
-        ->rows('regions.name')
-        ->columns('sales.year')
-        ->value('sales.amount')
-        ->matrix()
+    $matrix = Cubes::engine()
+        ->rows([['key' => 'regions.name']])
+        ->columns([['key' => 'sales.year']])
+        ->values([['key' => 'sales.amount']])
+        ->matrixRender()
         ->toArray();
 
     expect(headerLabels($matrix))->toBe([['Region', '2024', '2025']])
@@ -53,12 +53,11 @@ it('aligns the cells with the column headers, leaving missing combinations empty
 });
 
 it('adds a header row for the values when there are several', function () {
-    $matrix = Cubes::report()
-        ->rows('regions.name')
-        ->columns('sales.year')
-        ->value('sales.amount', label: 'Total')
-        ->value('sales.id')
-        ->matrix()
+    $matrix = Cubes::engine()
+        ->rows([['key' => 'regions.name']])
+        ->columns([['key' => 'sales.year']])
+        ->values([['key' => 'sales.amount', 'label' => 'Total'], ['key' => 'sales.id']])
+        ->matrixRender()
         ->toArray();
 
     expect(headerLabels($matrix))->toBe([
@@ -72,10 +71,10 @@ it('adds a header row for the values when there are several', function () {
 });
 
 it('spans nested column headers over their leaves', function () {
-    $matrix = Cubes::report()
-        ->columns('regions.name', 'sales.year')
-        ->value('sales.id')
-        ->matrix()
+    $matrix = Cubes::engine()
+        ->columns([['key' => 'regions.name'], ['key' => 'sales.year']])
+        ->values([['key' => 'sales.id']])
+        ->matrixRender()
         ->toArray();
 
     expect(headerLabels($matrix))->toBe([
@@ -87,7 +86,7 @@ it('spans nested column headers over their leaves', function () {
 });
 
 it('builds a single totals row without row dimensions', function () {
-    $matrix = Cubes::report()->value('sales.amount')->matrix()->toArray();
+    $matrix = Cubes::engine()->values([['key' => 'sales.amount']])->matrixRender()->toArray();
 
     expect(headerLabels($matrix))->toBe([['Amount']])
         ->and(bodyValues($matrix))->toEqual([[[], [390]]])
@@ -97,13 +96,13 @@ it('builds a single totals row without row dimensions', function () {
 it('translates the label of empty values', function () {
     app()->setLocale('es');
 
-    $matrix = Cubes::report()->rows('regions.name')->value('sales.amount')->matrix()->toArray();
+    $matrix = Cubes::engine()->rows([['key' => 'regions.name']])->values([['key' => 'sales.amount']])->matrixRender()->toArray();
 
     expect($matrix['rows'][0]['headers'][0])->toBe(['label' => '(vacío)', 'value' => null]);
 });
 
 it('serializes the matrix to json', function () {
-    $matrix = Cubes::report()->rows('regions.name')->value('sales.amount')->matrix();
+    $matrix = Cubes::engine()->rows([['key' => 'regions.name']])->values([['key' => 'sales.amount']])->matrixRender();
 
     expect(json_decode((string) json_encode($matrix), true))->toEqual($matrix->toArray());
 });

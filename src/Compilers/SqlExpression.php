@@ -2,33 +2,31 @@
 
 declare(strict_types=1);
 
-namespace Julitom3\Cubes\Reports;
+namespace Julitom3\Cubes\Compilers;
 
 use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Database\Grammar;
-use Julitom3\Cubes\Datasets\Dataset;
-use Julitom3\Cubes\Datasets\Field;
 use Julitom3\Cubes\Enums\Aggregation;
 
 /**
- * The SQL of a field, quoted by the grammar of the connection that runs the query.
+ * The SQL of a column, quoted by the grammar of the connection that runs the query.
  *
- * Tables, columns, and aliases are validated identifiers; a field expression is trusted
- * SQL written by the developer in the dataset, never input received from a report.
+ * Tables, columns, and aliases are validated identifiers; an expression is trusted SQL
+ * written by the developer in a dataset, never input received from a report.
  */
-final readonly class FieldExpression implements Expression
+final readonly class SqlExpression implements Expression
 {
     public function __construct(
-        private Dataset $dataset,
-        private Field $field,
+        private string $table,
+        private string $column,
+        private ?string $expression = null,
         private ?Aggregation $aggregation = null,
         private ?string $alias = null,
     ) {}
 
     public function getValue(Grammar $grammar): string
     {
-        $sql = $this->field->expression
-            ?? $grammar->wrap("{$this->dataset->table()}.{$this->field->column}");
+        $sql = $this->expression ?? $grammar->wrap("{$this->table}.{$this->column}");
 
         if ($this->aggregation !== null) {
             $sql = "{$this->aggregation->sql()}({$sql})";

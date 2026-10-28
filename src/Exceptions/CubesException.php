@@ -33,6 +33,11 @@ final class CubesException extends InvalidArgumentException
         return self::make('invalid_identifier', ['identifier' => $identifier]);
     }
 
+    public static function invalidSelection(): self
+    {
+        return self::make('invalid_selection');
+    }
+
     public static function notADimension(string $field): self
     {
         return self::make('not_a_dimension', ['field' => $field]);
