@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * @method static \Julitom3\Cubes\ReportEngine\ReportEngine engine()
- * @method static \Julitom3\Cubes\Datasets\Contracts\DatasetContract register(class-string<\Julitom3\Cubes\Datasets\Contracts\DatasetContract>|\Julitom3\Cubes\Datasets\Contracts\DatasetContract $dataset)
+ * @method static \Julitom3\Cubes\Datasets\Contracts\DatasetContract register(class-string<\Illuminate\Database\Eloquent\Model>|\Illuminate\Database\Eloquent\Model $model)
  * @method static \Julitom3\Cubes\Datasets\Contracts\DatasetContract dataset(string $name)
  * @method static array<string, \Julitom3\Cubes\Datasets\Contracts\DatasetContract> datasets()
  * @method static list<array<string, mixed>> catalog()

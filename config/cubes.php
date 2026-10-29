@@ -6,16 +6,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Datasets
+    | Model Discovery
     |--------------------------------------------------------------------------
     |
-    | The dataset classes that reports can use. Each one describes a table,
-    | its fields, and its relations to the other datasets.
+    | Every Eloquent model that uses the Cubable trait is a dataset. When
+    | auto_discover is true, Cubes finds them in the discover_paths. When it
+    | is false, only the models listed below are registered.
     |
     */
 
-    'datasets' => [
-        // App\Cubes\Datasets\SalesDataset::class,
+    'auto_discover' => true,
+
+    'discover_paths' => [
+        app_path('Models'),
+    ],
+
+    'models' => [
+        // App\Models\Sale::class,
     ],
 
     /*
@@ -23,34 +30,11 @@ return [
     | Database Connection
     |--------------------------------------------------------------------------
     |
-    | The connection that reports and the dataset generator use. Leave it
-    | null to use the default connection.
+    | The connection that reports run on. Leave it null to use the default
+    | connection.
     |
     */
 
     'connection' => null,
-
-    /*
-    |--------------------------------------------------------------------------
-    | Dataset Generator
-    |--------------------------------------------------------------------------
-    |
-    | Used by the cubes:make-dataset and cubes:sync commands. When path is
-    | null, datasets are written to app/Cubes/Datasets.
-    |
-    */
-
-    'generator' => [
-
-        'path' => null,
-
-        'namespace' => 'App\\Cubes\\Datasets',
-
-        // The tables that cubes:sync creates datasets for.
-        'tables' => [],
-
-        'exclude_columns' => ['id', 'created_at', 'updated_at', 'deleted_at'],
-
-    ],
 
 ];

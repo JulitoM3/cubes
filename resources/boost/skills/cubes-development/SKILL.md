@@ -13,15 +13,15 @@ Use this skill when a Laravel application needs reports, pivot tables, or a repo
 
 ## Workflow
 
-### 1. Install and define datasets
+### 1. Install and make models reportable
 
-- After `composer require julitom3/cubes`, run `php artisan cubes:install` to publish the config and translations; add `--with-stubs` to also publish the dataset stub, and `--force` to overwrite published files.
-
-- Generate a dataset per table with `php artisan cubes:make-dataset {table}`, or list tables in `cubes.generator.tables` and run `php artisan cubes:sync`.
-- Datasets extend `Julitom3\Cubes\Datasets\Contracts\DatasetContract` and implement `table()`, `fields(): FieldCollection`, and optionally `relations(): RelationCollection` and `category()`.
-- Use `FieldDefinitionDto::dimension()` for fields that rows and columns group by, and `FieldDefinitionDto::metric()` for fields aggregated as values.
-- Declare `new RelationDefinitionDto('related_table', 'local_key', 'foreign_key')` so Cubes can resolve joins; declare each relation once, it is walked in both directions.
-- Register every dataset in `config/cubes.php` under `datasets`.
+- After `composer require julitom3/cubes`, run `php artisan cubes:install` to publish the config and translations; add `--force` to overwrite published files.
+- Add the `Julitom3\Cubes\Traits\Cubable` trait to every Eloquent model reports can use, and implement `cubeSchema(): CubeSchema`.
+- Build the schema with `CubeSchema::make()->dimensions([...])->metrics([...])->relations([...])`. A field is a column name (label from the column, format from the model casts) or a `FieldDefinitionDto` for a custom label, format, aggregations, or expression.
+- `relations()` takes the names of `BelongsTo`, `HasOne`, or `HasMany` methods of the model, optionally keyed with a `JoinType`; declare each relation once, it is walked in both directions.
+- Use `->category()` to name the dataset something other than its table. For SQL views, create a model whose `$table` is the view.
+- With `cubes.auto_discover` true, Cubable models in `cubes.discover_paths` are registered automatically; with it false, list them in `cubes.models`.
+- Do not write dataset classes or generate them: the Cubable model is the only source.
 
 ### 2. Build reports
 

@@ -2,21 +2,27 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Model;
 use Julitom3\Cubes\Cubes as CubesManager;
-use Julitom3\Cubes\Datasets\Collections\FieldCollection;
-use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Julitom3\Cubes\Datasets\CubeSchema;
 use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
 use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
 use Julitom3\Cubes\Datasets\Enums\Aggregation;
 use Julitom3\Cubes\Datasets\Enums\FieldFormat;
+use Julitom3\Cubes\Datasets\ModelDataset;
 use Julitom3\Cubes\Exceptions\CubesException;
 use Julitom3\Cubes\Facades\Cubes;
 use Julitom3\Cubes\ReportEngine\DatasetRegistry;
-use Julitom3\Cubes\Tests\Fixtures\Datasets\SalesDataset;
+use Julitom3\Cubes\Tests\Fixtures\Models\Catalog\Supplier;
+use Julitom3\Cubes\Tests\Fixtures\Models\Sale;
+use Julitom3\Cubes\Traits\Cubable;
 
-it('registers the configured datasets', function () {
+it('registers the configured models as datasets', function () {
+    $sales = Cubes::dataset('sales');
+
     expect(array_keys(Cubes::datasets()))->toBe(['regions', 'stores', 'sales', 'products'])
-        ->and(Cubes::dataset('sales'))->toBeInstanceOf(SalesDataset::class);
+        ->and($sales)->toBeInstanceOf(ModelDataset::class)
+        ->and($sales instanceof ModelDataset ? $sales->model() : null)->toBeInstanceOf(Sale::class);
 });
 
 it('resolves the manager and the registry as singletons', function () {
@@ -41,34 +47,31 @@ it('describes the datasets with stable field keys', function () {
         ->and($catalog[0]['fields'][0])->toMatchArray(['key' => 'regions.name', 'pivotable' => true, 'aggregations' => []]);
 });
 
-it('registers datasets at runtime', function () {
-    $dataset = new class extends DatasetContract
+it('registers models at runtime', function () {
+    Cubes::register(new class extends Model
     {
-        public function table(): string
-        {
-            return 'products';
-        }
+        use Cubable;
 
-        public function category(): string
-        {
-            return 'catalog';
-        }
+        protected $table = 'products';
 
-        public function fields(): FieldCollection
+        public function cubeSchema(): CubeSchema
         {
-            return new FieldCollection([FieldDefinitionDto::dimension('name')]);
+            return CubeSchema::make()->category('catalog')->dimensions(['name']);
         }
-    };
-
-    Cubes::register($dataset);
+    });
 
     expect(Cubes::dataset('catalog')->getField('name')->label)->toBe('Name')
         ->and(Cubes::engine()->rows([['key' => 'catalog.name']])->get()->all())->toBe([['catalog.name' => 'Widget']]);
 });
 
-it('rejects classes that are not datasets', function () {
-    Cubes::register(stdClass::class);
-})->throws(CubesException::class, '[stdClass] is not a Cubes dataset.');
+it('rejects classes that are not Cubable models', function (string $class) {
+    expect(fn () => Cubes::register($class))
+        ->toThrow(CubesException::class, "[{$class}] is not an Eloquent model that uses the Cubable trait.");
+})->with([
+    'not a model' => [stdClass::class],
+    'model without the trait' => [Supplier::class],
+    'missing class' => ['App\\Models\\Missing'],
+]);
 
 it('rejects unsafe identifiers', function (Closure $build) {
     expect($build)->toThrow(CubesException::class, 'may only contain letters, numbers, and underscores');
@@ -85,16 +88,18 @@ it('allows counting fields without explicit aggregations', function () {
         ->and($field->allows(Aggregation::Sum))->toBeFalse();
 });
 
-it('guesses field formats from column types', function (string $type, FieldFormat $format) {
-    expect(FieldFormat::fromColumnType($type))->toBe($format);
+it('guesses field formats from model casts', function (?string $cast, ?FieldFormat $format) {
+    expect(FieldFormat::fromCast($cast))->toBe($format);
 })->with([
-    ['bigint', FieldFormat::Integer],
-    ['TINYINT', FieldFormat::Integer],
-    ['decimal', FieldFormat::Decimal],
-    ['numeric', FieldFormat::Decimal],
+    ['int', FieldFormat::Integer],
+    ['INTEGER', FieldFormat::Integer],
+    ['decimal:2', FieldFormat::Decimal],
+    ['float', FieldFormat::Decimal],
     ['boolean', FieldFormat::Boolean],
     ['date', FieldFormat::Date],
-    ['timestamp', FieldFormat::DateTime],
-    ['year', FieldFormat::Year],
-    ['json', FieldFormat::Text],
+    ['immutable_datetime', FieldFormat::DateTime],
+    ['datetime:Y-m-d', FieldFormat::DateTime],
+    ['string', null],
+    ['App\\Casts\\Money', null],
+    [null, null],
 ]);

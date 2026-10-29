@@ -12,7 +12,6 @@ class InstallCommand extends Command
      * The command signature.
      */
     protected $signature = 'cubes:install
-        {--with-stubs : Also publish the dataset stub to customize generated datasets}
         {--force : Overwrite files that were already published}';
 
     /**
@@ -25,13 +24,7 @@ class InstallCommand extends Command
      */
     public function handle(): int
     {
-        $tags = ['cubes-config', 'cubes-lang'];
-
-        if ($this->option('with-stubs')) {
-            $tags[] = 'cubes-stubs';
-        }
-
-        foreach ($tags as $tag) {
+        foreach (['cubes-config', 'cubes-lang'] as $tag) {
             $this->callSilently('vendor:publish', [
                 '--tag' => $tag,
                 '--force' => (bool) $this->option('force'),

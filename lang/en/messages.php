@@ -6,7 +6,8 @@ return [
     'empty' => '(empty)',
 
     'exceptions' => [
-        'invalid_dataset' => '[:class] is not a Cubes dataset.',
+        'not_cubable' => '[:class] is not an Eloquent model that uses the Cubable trait.',
+        'unsupported_relation' => 'The relation [:relation] of [:model] must be a BelongsTo, HasOne, or HasMany relation method.',
         'dataset_not_found' => 'The dataset [:dataset] is not registered.',
         'field_not_found' => 'The field [:field] does not exist in the dataset [:dataset].',
         'invalid_field_reference' => 'The field reference [:reference] must use the "dataset.field" format.',
@@ -19,15 +20,8 @@ return [
     ],
 
     'commands' => [
-        'table_not_found' => 'The table [:table] does not exist.',
-        'dataset_exists' => 'The dataset [:path] already exists. Use --force to overwrite it.',
-        'dataset_created' => 'Dataset [:path] created successfully.',
-        'no_tables' => 'There are no tables to sync. Add them to cubes.generator.tables.',
-        'skipped' => 'skipped, already exists',
-        'written' => 'written',
-        'synced' => ':count dataset(s) written.',
         'published' => 'published',
         'installed' => 'Cubes installed successfully.',
-        'next_steps' => 'Create your datasets with php artisan cubes:make-dataset {table} and register them in config/cubes.php.',
+        'next_steps' => 'Add the Cubable trait to your models and define their dimensions, metrics, and relations in cubeSchema().',
     ],
 ];

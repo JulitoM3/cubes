@@ -24,7 +24,7 @@
 
 Un motor de reportes tipo tabla dinámica para Laravel. Describe tus tablas como datasets, elige filas, columnas y valores, y Cubes resuelve los joins, construye la consulta y devuelve una matriz que cualquier frontend (Blade, Livewire, Vue, React, Angular) puede renderizar.
 
-**Contenido:** [Instalación](#es-instalacion) · [Datasets](#es-datasets) · [Relaciones](#es-relaciones) · [Generar datasets](#es-generar) · [Uso](#es-uso) · [Cómo se construye un reporte](#es-construccion) · [Construir un frontend](#es-frontend) · [Créditos y licencia](#es-creditos)
+**Contenido:** [Instalación](#es-instalacion) · [Modelos reportables](#es-datasets) · [Relaciones](#es-relaciones) · [Registrar los modelos](#es-generar) · [Uso](#es-uso) · [Cómo se construye un reporte](#es-construccion) · [Construir un frontend](#es-frontend) · [Créditos y licencia](#es-creditos)
 
 <a id="es-instalacion"></a>
 
@@ -40,8 +40,7 @@ Después ejecuta el instalador, que publica el archivo de configuración y las t
 
 ```bash
 php artisan cubes:install
-php artisan cubes:install --with-stubs   # publica también el stub de los datasets para personalizarlo
-php artisan cubes:install --force        # sobrescribe los archivos que ya publicaste
+php artisan cubes:install --force   # sobrescribe los archivos que ya publicaste
 ```
 
 También puedes publicar cada recurso por separado:
@@ -49,105 +48,91 @@ También puedes publicar cada recurso por separado:
 ```bash
 php artisan vendor:publish --tag="cubes-config"
 php artisan vendor:publish --tag="cubes-lang"
-php artisan vendor:publish --tag="cubes-stubs"
 ```
 
 <a id="es-datasets"></a>
 
-## Datasets
+## Modelos reportables
 
-Un dataset describe una tabla: los campos que los reportes pueden usar y sus relaciones con otros datasets.
+Cada modelo Eloquent que usa el trait `Cubable` es un dataset. En `cubeSchema()` declaras qué columnas son dimensiones, cuáles son métricas y qué relaciones del modelo conectan con otros modelos `Cubable`. El modelo es la única fuente: no hay clases de dataset que mantener aparte.
 
 ```php
-use Julitom3\Cubes\Datasets\Collections\FieldCollection;
-use Julitom3\Cubes\Datasets\Collections\RelationCollection;
-use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Julitom3\Cubes\Datasets\CubeSchema;
 use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
-use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
 use Julitom3\Cubes\Datasets\Enums\Aggregation;
 use Julitom3\Cubes\Datasets\Enums\FieldFormat;
+use Julitom3\Cubes\Traits\Cubable;
 
-class SalesDataset extends DatasetContract
+class Sale extends Model
 {
-    public function table(): string
+    use Cubable;
+
+    protected $casts = ['amount' => 'decimal:2', 'sold_at' => 'datetime'];
+
+    public function store(): BelongsTo
     {
-        return 'sales';
+        return $this->belongsTo(Store::class);
     }
 
-    public function fields(): FieldCollection
+    public function cubeSchema(): CubeSchema
     {
-        return new FieldCollection([
-            FieldDefinitionDto::metric('amount', 'Monto', format: FieldFormat::Currency),
-            FieldDefinitionDto::metric('id', 'Número de ventas', [Aggregation::Count]),
-            FieldDefinitionDto::dimension('year', 'Año', FieldFormat::Year, pivotable: true),
-            FieldDefinitionDto::dimension('month', 'Mes', expression: 'MONTH(sales.sold_at)'),
-        ]);
-    }
-
-    public function relations(): RelationCollection
-    {
-        return new RelationCollection([
-            new RelationDefinitionDto('stores', 'store_id'), // sales.store_id = stores.id
-        ]);
+        return CubeSchema::make()
+            ->dimensions([
+                'payment_method',
+                FieldDefinitionDto::dimension('year', 'Año', FieldFormat::Year, pivotable: true),
+                FieldDefinitionDto::dimension('month', 'Mes', expression: 'MONTH(sales.sold_at)'),
+            ])
+            ->metrics([
+                'amount',
+                FieldDefinitionDto::metric('id', 'Número de ventas', [Aggregation::Count]),
+            ])
+            ->relations(['store']);
     }
 }
 ```
 
-Registra tus datasets en `config/cubes.php`:
-
-```php
-'datasets' => [
-    App\Cubes\Datasets\RegionsDataset::class,
-    App\Cubes\Datasets\StoresDataset::class,
-    App\Cubes\Datasets\SalesDataset::class,
-],
-```
-
-Las dimensiones se usan como filas y columnas; las métricas se agregan como valores. La `expression` de un campo es SQL que tú escribes en el dataset; nunca se toma de lo que envía el reporte.
+- **Un campo puede ser el nombre de una columna** (`'amount'`): toma su etiqueta del nombre de la columna y su formato de los `$casts` del modelo (`decimal:2` → decimal, `datetime` → fecha y hora). Las métricas sin cast usan el formato entero.
+- **O un `FieldDefinitionDto`**, cuando quieres otra etiqueta, otro formato, limitar las agregaciones o usar una `expression`. La `expression` es SQL que tú escribes en el modelo; nunca se toma de lo que envía el reporte.
+- **Las dimensiones se usan como filas y columnas; las métricas se agregan como valores.**
+- **El dataset se llama como la tabla** (`sales.amount`). Usa `->category('ventas')` para darle otro nombre y no exponer el de la tabla, y `->label('Ventas')` para su etiqueta.
+- **Las vistas SQL también funcionan:** crea un modelo cuyo `$table` sea la vista.
 
 <a id="es-relaciones"></a>
 
 ### Relaciones
 
-Una `RelationDefinitionDto` describe cómo un dataset se une con otro: `new RelationDefinitionDto($table, $localKey, $foreignKey = 'id', $joinType = JoinType::Left)` significa `{tabla del dataset}.{localKey} = {table}.{foreignKey}`. Las tablas y llaves deben ser identificadores válidos.
+En `->relations()` pasas los nombres de los métodos de relación del modelo. Cubes lee las llaves de la propia relación, así que no hace falta que la base de datos tenga llaves foráneas declaradas:
 
 ```php
-use Julitom3\Cubes\Datasets\Collections\RelationCollection;
-use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
-use Julitom3\Cubes\Datasets\Enums\JoinType;
-
-public function relations(): RelationCollection
-{
-    return new RelationCollection([
-        new RelationDefinitionDto('stores', 'store_id'),                             // left join stores on sales.store_id = stores.id
-        new RelationDefinitionDto('products', 'product_id', 'id', JoinType::Inner),  // inner join products on sales.product_id = products.id
-    ]);
-}
+->relations([
+    'store',                        // left join stores on sales.store_id = stores.id
+    'product' => JoinType::Inner,   // inner join products on sales.product_id = products.id
+])
 ```
 
-- Declara cada relación una sola vez, en cualquiera de los dos lados: Cubes recorre cada relación en ambos sentidos, así que `regions` llega a `sales` a través de `stores` sin declarar la inversa.
-- La tabla relacionada debe pertenecer a un dataset registrado; las relaciones hacia otras tablas se ignoran.
+- Se aceptan relaciones `BelongsTo`, `HasOne` y `HasMany`. Las uniones son `left join`, salvo que indiques otro `JoinType`.
+- Declara cada relación una sola vez, en cualquiera de los dos modelos: Cubes recorre cada relación en ambos sentidos, así que `regions` llega a `sales` a través de `stores` sin declarar la inversa.
+- El modelo relacionado también debe ser `Cubable`; las relaciones hacia otros modelos se ignoran.
 - Cuando un reporte usa varios datasets, Cubes sigue el camino más corto de relaciones desde el dataset base y convierte cada paso en un `JoinDefinitionDto`.
 
 <a id="es-generar"></a>
 
-### Generar datasets
+### Registrar los modelos
 
-Genera un dataset a partir del esquema de la base de datos. Las columnas se vuelven campos y las llaves foráneas de una sola columna se vuelven relaciones:
+En `config/cubes.php` eliges cómo encuentra Cubes tus modelos:
 
-```bash
-php artisan cubes:make-dataset sales
-php artisan cubes:make-dataset sales --empty   # sin campos
-php artisan cubes:make-dataset sales --force   # sobrescribir
+```php
+'auto_discover' => true,                  // busca los modelos Cubable en discover_paths
+'discover_paths' => [app_path('Models')],
+'models' => [],                           // con auto_discover en false, solo se registran estos
 ```
 
-O lista las tablas en `cubes.generator.tables` y genéralas todas. Los datasets que ya existen se omiten, a menos que uses `--force`:
-
-```bash
-php artisan cubes:sync
-```
-
-Todos los campos generados son dimensiones; cambia a `FieldDefinitionDto::metric()` los que quieras agregar como valores.
+- Con `auto_discover` en `true`, Cubes revisa los archivos PHP de `discover_paths`, incluidas las subcarpetas, y registra cada modelo que use `Cubable`.
+- Con `auto_discover` en `false`, solo se registran los modelos que listes en `models`.
+- Los modelos se descubren la primera vez que un reporte los necesita, no en cada request.
+- También puedes registrar un modelo en tiempo de ejecución con `Cubes::register(Sale::class)`.
 
 <a id="es-uso"></a>
 
@@ -278,7 +263,7 @@ Cubes es software de código abierto bajo la [licencia MIT](LICENSE.md).
 
 A pivot-table report engine for Laravel. Describe your tables as datasets, pick rows, columns, and values, and Cubes resolves the joins, builds the query, and returns a matrix that any frontend (Blade, Livewire, Vue, React, Angular) can render.
 
-**Contents:** [Installation](#en-installation) · [Datasets](#en-datasets) · [Relations](#en-relations) · [Generating datasets](#en-generating) · [Usage](#en-usage) · [How a report is built](#en-building) · [Building a frontend](#en-frontend) · [Credits and license](#en-credits)
+**Contents:** [Installation](#en-installation) · [Reportable models](#en-datasets) · [Relations](#en-relations) · [Registering models](#en-generating) · [Usage](#en-usage) · [How a report is built](#en-building) · [Building a frontend](#en-frontend) · [Credits and license](#en-credits)
 
 <a id="en-installation"></a>
 
@@ -294,8 +279,7 @@ Then run the installer, which publishes the configuration file and the translati
 
 ```bash
 php artisan cubes:install
-php artisan cubes:install --with-stubs   # also publish the dataset stub to customize it
-php artisan cubes:install --force        # overwrite files you already published
+php artisan cubes:install --force   # overwrite files you already published
 ```
 
 You can also publish each resource on its own:
@@ -303,105 +287,91 @@ You can also publish each resource on its own:
 ```bash
 php artisan vendor:publish --tag="cubes-config"
 php artisan vendor:publish --tag="cubes-lang"
-php artisan vendor:publish --tag="cubes-stubs"
 ```
 
 <a id="en-datasets"></a>
 
-## Datasets
+## Reportable Models
 
-A dataset describes a table: the fields reports can use and its relations to other datasets.
+Every Eloquent model that uses the `Cubable` trait is a dataset. In `cubeSchema()` you declare which columns are dimensions, which are metrics, and which relations of the model connect it with other `Cubable` models. The model is the only source: there are no separate dataset classes to keep in sync.
 
 ```php
-use Julitom3\Cubes\Datasets\Collections\FieldCollection;
-use Julitom3\Cubes\Datasets\Collections\RelationCollection;
-use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Julitom3\Cubes\Datasets\CubeSchema;
 use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
-use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
 use Julitom3\Cubes\Datasets\Enums\Aggregation;
 use Julitom3\Cubes\Datasets\Enums\FieldFormat;
+use Julitom3\Cubes\Traits\Cubable;
 
-class SalesDataset extends DatasetContract
+class Sale extends Model
 {
-    public function table(): string
+    use Cubable;
+
+    protected $casts = ['amount' => 'decimal:2', 'sold_at' => 'datetime'];
+
+    public function store(): BelongsTo
     {
-        return 'sales';
+        return $this->belongsTo(Store::class);
     }
 
-    public function fields(): FieldCollection
+    public function cubeSchema(): CubeSchema
     {
-        return new FieldCollection([
-            FieldDefinitionDto::metric('amount', 'Amount', format: FieldFormat::Currency),
-            FieldDefinitionDto::metric('id', 'Sales count', [Aggregation::Count]),
-            FieldDefinitionDto::dimension('year', 'Year', FieldFormat::Year, pivotable: true),
-            FieldDefinitionDto::dimension('month', 'Month', expression: 'MONTH(sales.sold_at)'),
-        ]);
-    }
-
-    public function relations(): RelationCollection
-    {
-        return new RelationCollection([
-            new RelationDefinitionDto('stores', 'store_id'), // sales.store_id = stores.id
-        ]);
+        return CubeSchema::make()
+            ->dimensions([
+                'payment_method',
+                FieldDefinitionDto::dimension('year', 'Year', FieldFormat::Year, pivotable: true),
+                FieldDefinitionDto::dimension('month', 'Month', expression: 'MONTH(sales.sold_at)'),
+            ])
+            ->metrics([
+                'amount',
+                FieldDefinitionDto::metric('id', 'Sales count', [Aggregation::Count]),
+            ])
+            ->relations(['store']);
     }
 }
 ```
 
-Register your datasets in `config/cubes.php`:
-
-```php
-'datasets' => [
-    App\Cubes\Datasets\RegionsDataset::class,
-    App\Cubes\Datasets\StoresDataset::class,
-    App\Cubes\Datasets\SalesDataset::class,
-],
-```
-
-Dimensions are used as rows and columns; metrics are aggregated as values. A field `expression` is raw SQL that you write in the dataset; it is never taken from report input.
+- **A field can be a column name** (`'amount'`): it takes its label from the column name and its format from the model `$casts` (`decimal:2` → decimal, `datetime` → date and time). Metrics without a cast use the integer format.
+- **Or a `FieldDefinitionDto`**, when you want another label or format, fewer aggregations, or an `expression`. The `expression` is SQL that you write in the model; it is never taken from report input.
+- **Dimensions are used as rows and columns; metrics are aggregated as values.**
+- **The dataset is named after the table** (`sales.amount`). Use `->category('revenue')` to name it otherwise and keep the table name private, and `->label('Revenue')` for its label.
+- **SQL views work too:** create a model whose `$table` is the view.
 
 <a id="en-relations"></a>
 
 ### Relations
 
-A `RelationDefinitionDto` describes how a dataset joins another one: `new RelationDefinitionDto($table, $localKey, $foreignKey = 'id', $joinType = JoinType::Left)` means `{dataset table}.{localKey} = {table}.{foreignKey}`. Tables and keys must be valid identifiers.
+Pass the names of the relation methods of the model to `->relations()`. Cubes reads the keys from the relation itself, so the database does not need declared foreign keys:
 
 ```php
-use Julitom3\Cubes\Datasets\Collections\RelationCollection;
-use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
-use Julitom3\Cubes\Datasets\Enums\JoinType;
-
-public function relations(): RelationCollection
-{
-    return new RelationCollection([
-        new RelationDefinitionDto('stores', 'store_id'),                             // left join stores on sales.store_id = stores.id
-        new RelationDefinitionDto('products', 'product_id', 'id', JoinType::Inner),  // inner join products on sales.product_id = products.id
-    ]);
-}
+->relations([
+    'store',                        // left join stores on sales.store_id = stores.id
+    'product' => JoinType::Inner,   // inner join products on sales.product_id = products.id
+])
 ```
 
-- Declare each relation once, on either side: Cubes walks every relation in both directions, so `regions` reaches `sales` through `stores` without declaring the inverse.
-- The related table must belong to a registered dataset; relations to other tables are ignored.
+- `BelongsTo`, `HasOne`, and `HasMany` relations are supported. Joins are left joins unless you give another `JoinType`.
+- Declare each relation once, on either model: Cubes walks every relation in both directions, so `regions` reaches `sales` through `stores` without declaring the inverse.
+- The related model must be `Cubable` too; relations to other models are ignored.
 - When a report uses several datasets, Cubes follows the shortest path of relations from the base dataset and turns each step into a `JoinDefinitionDto`.
 
 <a id="en-generating"></a>
 
-### Generating Datasets
+### Registering Models
 
-Generate a dataset from the database schema. Columns become fields and single-column foreign keys become relations:
+In `config/cubes.php` you choose how Cubes finds your models:
 
-```bash
-php artisan cubes:make-dataset sales
-php artisan cubes:make-dataset sales --empty   # without fields
-php artisan cubes:make-dataset sales --force   # overwrite
+```php
+'auto_discover' => true,                  // find the Cubable models in discover_paths
+'discover_paths' => [app_path('Models')],
+'models' => [],                           // with auto_discover false, only these are registered
 ```
 
-Or list tables in `cubes.generator.tables` and generate them all. Existing datasets are skipped unless you pass `--force`:
-
-```bash
-php artisan cubes:sync
-```
-
-Every generated field is a dimension; change the ones you want to aggregate as values to `FieldDefinitionDto::metric()`.
+- With `auto_discover` set to `true`, Cubes reads the PHP files in `discover_paths`, subdirectories included, and registers every model that uses `Cubable`.
+- With `auto_discover` set to `false`, only the models listed in `models` are registered.
+- Models are discovered the first time a report needs them, not on every request.
+- You can also register a model at runtime with `Cubes::register(Sale::class)`.
 
 <a id="en-usage"></a>
 

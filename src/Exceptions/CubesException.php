@@ -8,9 +8,14 @@ use InvalidArgumentException;
 
 final class CubesException extends InvalidArgumentException
 {
-    public static function invalidDataset(string $class): self
+    public static function notCubable(string $class): self
     {
-        return self::make('invalid_dataset', ['class' => $class]);
+        return self::make('not_cubable', ['class' => $class]);
+    }
+
+    public static function unsupportedRelation(string $model, string $relation): self
+    {
+        return self::make('unsupported_relation', ['model' => $model, 'relation' => $relation]);
     }
 
     public static function datasetNotFound(string $dataset): self

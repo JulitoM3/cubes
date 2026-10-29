@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Julitom3\Cubes;
 
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Database\Eloquent\Model;
 use Julitom3\Cubes\Catalog\CatalogFactory;
 use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
 use Julitom3\Cubes\ReportEngine\DatasetRegistry;
@@ -27,11 +28,13 @@ class Cubes
     }
 
     /**
-     * @param  class-string<DatasetContract>|DatasetContract  $dataset
+     * Register a Cubable model as a dataset at runtime.
+     *
+     * @param  class-string<Model>|Model  $model
      */
-    public function register(string|DatasetContract $dataset): DatasetContract
+    public function register(string|Model $model): DatasetContract
     {
-        return $this->registry->register($dataset);
+        return $this->registry->register($model);
     }
 
     public function dataset(string $name): DatasetContract

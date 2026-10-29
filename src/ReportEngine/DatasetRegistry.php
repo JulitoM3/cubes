@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Julitom3\Cubes\ReportEngine;
 
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Database\Eloquent\Model;
 use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
 use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
+use Julitom3\Cubes\Datasets\ModelDataset;
 use Julitom3\Cubes\Exceptions\CubesException;
 
 final class DatasetRegistry
@@ -19,19 +21,23 @@ final class DatasetRegistry
     public function __construct(private readonly Container $container) {}
 
     /**
-     * @param  class-string<DatasetContract>|DatasetContract  $dataset
+     * Register a Cubable model as a dataset.
+     *
+     * @param  class-string<Model>|Model  $model
      */
-    public function register(string|DatasetContract $dataset): DatasetContract
+    public function register(string|Model $model): DatasetContract
     {
-        if (is_string($dataset)) {
-            $instance = $this->container->make($dataset);
+        if (is_string($model)) {
+            $instance = class_exists($model) ? $this->container->make($model) : null;
 
-            if (! $instance instanceof DatasetContract) {
-                throw CubesException::invalidDataset($dataset);
+            if (! $instance instanceof Model) {
+                throw CubesException::notCubable($model);
             }
 
-            $dataset = $instance;
+            $model = $instance;
         }
+
+        $dataset = new ModelDataset($model);
 
         $this->version++;
 

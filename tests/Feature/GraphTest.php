@@ -2,12 +2,10 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Schema;
-use Julitom3\Cubes\Datasets\Collections\FieldCollection;
-use Julitom3\Cubes\Datasets\Collections\RelationCollection;
-use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
-use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
-use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
+use Julitom3\Cubes\Datasets\CubeSchema;
 use Julitom3\Cubes\Datasets\Enums\JoinType;
 use Julitom3\Cubes\Exceptions\CubesException;
 use Julitom3\Cubes\Facades\Cubes;
@@ -17,7 +15,9 @@ use Julitom3\Cubes\ReportEngine\Definitions\DTOs\DatasetGraph\DatasetEdgeDto;
 use Julitom3\Cubes\ReportEngine\Definitions\DTOs\DatasetGraph\DatasetNodeDto;
 use Julitom3\Cubes\ReportEngine\Definitions\DTOs\JoinDefinitionDto;
 use Julitom3\Cubes\ReportEngine\ReportEngine;
-use Julitom3\Cubes\Tests\Fixtures\Datasets\SalesDataset;
+use Julitom3\Cubes\Tests\Fixtures\Models\Region;
+use Julitom3\Cubes\Tests\Fixtures\Models\Sale;
+use Julitom3\Cubes\Traits\Cubable;
 
 /**
  * @return list<JoinDefinitionDto>
@@ -44,7 +44,7 @@ it('keeps the graph until another dataset is registered', function () {
 
     expect($graphs->create())->toBe($graph);
 
-    Cubes::register(new SalesDataset);
+    Cubes::register(Sale::class);
 
     expect($graphs->create())->not->toBe($graph)
         ->and($graphs->create())->toBe($graphs->create());
@@ -137,21 +137,21 @@ it('compares columns that exist on their own tables', function (ReportEngine $en
 ]);
 
 it('keeps the join type of the relation in both directions', function () {
-    Cubes::register(new class extends DatasetContract
+    Cubes::register(new class extends Model
     {
-        public function table(): string
+        use Cubable;
+
+        protected $table = 'products';
+
+        /** @return BelongsTo<Region, $this> */
+        public function region(): BelongsTo
         {
-            return 'products';
+            return $this->belongsTo(Region::class, 'id', 'id');
         }
 
-        public function fields(): FieldCollection
+        public function cubeSchema(): CubeSchema
         {
-            return new FieldCollection([FieldDefinitionDto::dimension('name')]);
-        }
-
-        public function relations(): RelationCollection
-        {
-            return new RelationCollection([new RelationDefinitionDto('regions', 'id', 'id', JoinType::Inner)]);
+            return CubeSchema::make()->dimensions(['name'])->relations(['region' => JoinType::Inner]);
         }
     });
 

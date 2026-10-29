@@ -8,10 +8,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Julitom3\Cubes\CubesServiceProvider;
-use Julitom3\Cubes\Tests\Fixtures\Datasets\ProductsDataset;
-use Julitom3\Cubes\Tests\Fixtures\Datasets\RegionsDataset;
-use Julitom3\Cubes\Tests\Fixtures\Datasets\SalesDataset;
-use Julitom3\Cubes\Tests\Fixtures\Datasets\StoresDataset;
+use Julitom3\Cubes\Tests\Fixtures\Models\Catalog\Product;
+use Julitom3\Cubes\Tests\Fixtures\Models\Region;
+use Julitom3\Cubes\Tests\Fixtures\Models\Sale;
+use Julitom3\Cubes\Tests\Fixtures\Models\Store;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
@@ -25,11 +25,12 @@ abstract class TestCase extends Orchestra
 
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('cubes.datasets', [
-            RegionsDataset::class,
-            StoresDataset::class,
-            SalesDataset::class,
-            ProductsDataset::class,
+        $app['config']->set('cubes.auto_discover', false);
+        $app['config']->set('cubes.models', [
+            Region::class,
+            Store::class,
+            Sale::class,
+            Product::class,
         ]);
     }
 

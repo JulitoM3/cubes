@@ -17,20 +17,22 @@ enum FieldFormat: string
     case Year = 'year';
 
     /**
-     * Guess the format of a column from its database type name.
+     * Guess the format of a column from its Eloquent cast, e.g. "decimal:2" or "datetime".
+     * Returns null for casts without a matching format, such as strings or custom casts.
      */
-    public static function fromColumnType(string $type): self
+    public static function fromCast(?string $cast): ?self
     {
-        return match (strtolower($type)) {
-            'tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint',
-            'int2', 'int4', 'int8', 'serial', 'bigserial', 'smallserial' => self::Integer,
-            'decimal', 'numeric', 'float', 'double', 'real',
-            'float4', 'float8', 'money', 'smallmoney' => self::Decimal,
-            'bool', 'boolean', 'bit' => self::Boolean,
-            'date' => self::Date,
-            'datetime', 'datetime2', 'timestamp', 'timestamptz', 'smalldatetime', 'datetimeoffset' => self::DateTime,
-            'year' => self::Year,
-            default => self::Text,
+        if ($cast === null) {
+            return null;
+        }
+
+        return match (strtolower(explode(':', $cast, 2)[0])) {
+            'int', 'integer' => self::Integer,
+            'real', 'float', 'double', 'decimal' => self::Decimal,
+            'bool', 'boolean' => self::Boolean,
+            'date', 'immutable_date' => self::Date,
+            'datetime', 'immutable_datetime', 'timestamp' => self::DateTime,
+            default => null,
         };
     }
 }
