@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
-use Julitom3\Cubes\Datasets\Dataset;
-use Julitom3\Cubes\Enums\FieldFormat;
+use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Julitom3\Cubes\Datasets\Enums\FieldFormat;
 
 beforeEach(function () {
     $this->path = sys_get_temp_dir().'/cubes-tests-'.uniqid();
@@ -28,19 +28,19 @@ it('creates a dataset with fields and relations read from the schema', function 
 
     expect($contents)
         ->toContain('namespace Generated\Cubes;')
-        ->toContain("Field::dimension('name', 'Name', FieldFormat::Text),")
-        ->toContain("Field::dimension('region_id', 'Region Id', FieldFormat::Integer),")
-        ->toContain("new Relation('regions', 'region_id', 'id'),")
+        ->toContain("FieldDefinitionDto::dimension('name', 'Name', FieldFormat::Text),")
+        ->toContain("FieldDefinitionDto::dimension('region_id', 'Region Id', FieldFormat::Integer),")
+        ->toContain("new RelationDefinitionDto('regions', 'region_id', 'id'),")
         ->not->toContain("'created_at'")
-        ->not->toContain("Field::dimension('id'");
+        ->not->toContain("FieldDefinitionDto::dimension('id'");
 
     require_once "{$this->path}/StoresDataset.php";
 
     $dataset = new ('Generated\\Cubes\\StoresDataset');
 
-    expect($dataset)->toBeInstanceOf(Dataset::class)
+    expect($dataset)->toBeInstanceOf(DatasetContract::class)
         ->and($dataset->table())->toBe('stores')
-        ->and($dataset->field('region_id')->format)->toBe(FieldFormat::Integer)
+        ->and($dataset->getField('region_id')->format)->toBe(FieldFormat::Integer)
         ->and($dataset->relations()[0]->table)->toBe('regions');
 });
 
@@ -49,8 +49,8 @@ it('creates an empty dataset', function () {
 
     expect(File::get("{$this->path}/SalesDataset.php"))
         ->toContain("return 'sales';")
-        ->toContain('return [];')
-        ->not->toContain('Field::dimension');
+        ->toContain('return new FieldCollection([]);')
+        ->not->toContain('FieldDefinitionDto::dimension');
 });
 
 it('does not overwrite an existing dataset unless forced', function () {
@@ -65,7 +65,7 @@ it('does not overwrite an existing dataset unless forced', function () {
 
     $this->artisan('cubes:make-dataset', ['table' => 'sales', '--force' => true])->assertSuccessful();
 
-    expect(File::get("{$this->path}/SalesDataset.php"))->toContain('class SalesDataset extends Dataset');
+    expect(File::get("{$this->path}/SalesDataset.php"))->toContain('class SalesDataset extends DatasetContract');
 });
 
 it('fails for unknown tables', function () {

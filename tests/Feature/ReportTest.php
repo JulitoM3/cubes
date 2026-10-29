@@ -71,7 +71,7 @@ it('uses the first allowed aggregation by default and accepts names in any case'
 });
 
 it('accepts the palette items as the frontend sends them back, ignoring extra attributes', function () {
-    $field = Cubes::dataset('regions')->palette()[0]->toArray();
+    $field = Cubes::catalog()[0]['fields'][0];
 
     $definition = Cubes::engine()->rows([$field])->reportDefinition();
 

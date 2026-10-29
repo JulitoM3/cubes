@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Julitom3\Cubes\Enums\Aggregation;
+use Julitom3\Cubes\Datasets\Enums\Aggregation;
 
 it('resolves aggregations by name in any case', function () {
     expect(Aggregation::fromName(' SUM '))->toBe(Aggregation::Sum)

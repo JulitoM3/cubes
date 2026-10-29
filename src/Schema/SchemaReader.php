@@ -7,8 +7,8 @@ namespace Julitom3\Cubes\Schema;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Schema\Builder;
-use Julitom3\Cubes\Datasets\Identifier;
-use Julitom3\Cubes\Datasets\Relation;
+use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
+use Julitom3\Cubes\Datasets\Support\Identifier;
 
 final readonly class SchemaReader
 {
@@ -48,7 +48,7 @@ final readonly class SchemaReader
     /**
      * The single-column foreign keys of the table, as dataset relations.
      *
-     * @return list<Relation>
+     * @return list<RelationDefinitionDto>
      */
     public function relations(string $table): array
     {
@@ -59,7 +59,7 @@ final readonly class SchemaReader
                 continue;
             }
 
-            $relations[] = new Relation(
+            $relations[] = new RelationDefinitionDto(
                 table: $foreignKey['foreign_table'],
                 localKey: $foreignKey['columns'][0],
                 foreignKey: $foreignKey['foreign_columns'][0],

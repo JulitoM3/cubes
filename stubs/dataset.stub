@@ -4,31 +4,27 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-use Julitom3\Cubes\Datasets\Dataset;
-use Julitom3\Cubes\Datasets\Field;
-use Julitom3\Cubes\Datasets\Relation;
-use Julitom3\Cubes\Enums\FieldFormat;
+use Julitom3\Cubes\Datasets\Collections\FieldCollection;
+use Julitom3\Cubes\Datasets\Collections\RelationCollection;
+use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
+use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
+use Julitom3\Cubes\Datasets\Enums\FieldFormat;
 
-class {{ class }} extends Dataset
+class {{ class }} extends DatasetContract
 {
     public function table(): string
     {
         return {{ table }};
     }
 
-    /**
-     * @return list<Field>
-     */
-    public function fields(): array
+    public function fields(): FieldCollection
     {
-        return [{{ fields }}];
+        return new FieldCollection([{{ fields }}]);
     }
 
-    /**
-     * @return list<Relation>
-     */
-    public function relations(): array
+    public function relations(): RelationCollection
     {
-        return [{{ relations }}];
+        return new RelationCollection([{{ relations }}]);
     }
 }

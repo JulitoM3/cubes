@@ -7,10 +7,10 @@ namespace Julitom3\Cubes\Facades;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @method static \Julitom3\Cubes\Engine\ReportEngine engine()
- * @method static \Julitom3\Cubes\Datasets\Dataset register(class-string<\Julitom3\Cubes\Datasets\Dataset>|\Julitom3\Cubes\Datasets\Dataset $dataset)
- * @method static \Julitom3\Cubes\Datasets\Dataset dataset(string $name)
- * @method static array<string, \Julitom3\Cubes\Datasets\Dataset> datasets()
+ * @method static \Julitom3\Cubes\ReportEngine\ReportEngine engine()
+ * @method static \Julitom3\Cubes\Datasets\Contracts\DatasetContract register(class-string<\Julitom3\Cubes\Datasets\Contracts\DatasetContract>|\Julitom3\Cubes\Datasets\Contracts\DatasetContract $dataset)
+ * @method static \Julitom3\Cubes\Datasets\Contracts\DatasetContract dataset(string $name)
+ * @method static array<string, \Julitom3\Cubes\Datasets\Contracts\DatasetContract> datasets()
  * @method static list<array<string, mixed>> catalog()
  *
  * @see \Julitom3\Cubes\Cubes

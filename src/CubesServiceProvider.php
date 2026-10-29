@@ -8,8 +8,9 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Julitom3\Cubes\Console\Commands\MakeDatasetCommand;
 use Julitom3\Cubes\Console\Commands\SyncDatasetsCommand;
-use Julitom3\Cubes\Datasets\Dataset;
-use Julitom3\Cubes\Datasets\DatasetRegistry;
+use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Julitom3\Cubes\ReportEngine\DatasetRegistry;
+use Julitom3\Cubes\ReportEngine\Definitions\DatasetGraphDefinition;
 
 class CubesServiceProvider extends ServiceProvider
 {
@@ -23,7 +24,7 @@ class CubesServiceProvider extends ServiceProvider
         $this->app->singleton(DatasetRegistry::class, function (Application $app): DatasetRegistry {
             $registry = new DatasetRegistry($app);
 
-            /** @var list<class-string<Dataset>> $datasets */
+            /** @var list<class-string<DatasetContract>> $datasets */
             $datasets = $app->make('config')->get('cubes.datasets', []);
 
             foreach ($datasets as $dataset) {
@@ -33,6 +34,7 @@ class CubesServiceProvider extends ServiceProvider
             return $registry;
         });
 
+        $this->app->singleton(DatasetGraphDefinition::class);
         $this->app->singleton(Cubes::class);
     }
 

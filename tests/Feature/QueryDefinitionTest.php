@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use Julitom3\Cubes\Definitions\DTOs\FromDefinitionDto;
-use Julitom3\Cubes\Definitions\DTOs\GroupByDefinitionDto;
-use Julitom3\Cubes\Definitions\DTOs\JoinDefinitionDto;
-use Julitom3\Cubes\Definitions\DTOs\OrderByDefinitionDto;
-use Julitom3\Cubes\Definitions\DTOs\SelectDefinitionDto;
-use Julitom3\Cubes\Enums\Aggregation;
-use Julitom3\Cubes\Enums\JoinType;
+use Julitom3\Cubes\Datasets\Enums\Aggregation;
+use Julitom3\Cubes\Datasets\Enums\JoinType;
 use Julitom3\Cubes\Facades\Cubes;
+use Julitom3\Cubes\ReportEngine\Definitions\DTOs\FromDefinitionDto;
+use Julitom3\Cubes\ReportEngine\Definitions\DTOs\GroupByDefinitionDto;
+use Julitom3\Cubes\ReportEngine\Definitions\DTOs\JoinDefinitionDto;
+use Julitom3\Cubes\ReportEngine\Definitions\DTOs\OrderByDefinitionDto;
+use Julitom3\Cubes\ReportEngine\Definitions\DTOs\SelectDefinitionDto;
 
 it('describes every clause of the query before compiling it', function () {
     $query = Cubes::engine()
@@ -23,10 +23,12 @@ it('describes every clause of the query before compiling it', function () {
             new JoinDefinitionDto('stores', 'sales', 'store_id', 'id', JoinType::Left),
             new JoinDefinitionDto('regions', 'stores', 'region_id', 'id', JoinType::Left),
         ])
-        ->and($query->selects)->toEqual([
-            new SelectDefinitionDto('regions', 'name', null, null, 'd0'),
-            new SelectDefinitionDto('sales', 'short_year', 'sales.year - 2000', null, 'd1'),
-            new SelectDefinitionDto('sales', 'amount', null, Aggregation::Avg, 'v0'),
+        ->and(array_map(fn (SelectDefinitionDto $select): array => [
+            $select->origin->key(), $select->table, $select->column, $select->expression, $select->aggregation, $select->alias,
+        ], $query->selects))->toBe([
+            ['regions.name', 'regions', 'name', null, null, 'd0'],
+            ['sales.short_year', 'sales', 'short_year', 'sales.year - 2000', null, 'd1'],
+            ['avg(sales.amount)', 'sales', 'amount', null, Aggregation::Avg, 'v0'],
         ])
         ->and($query->groupBy)->toEqual([
             new GroupByDefinitionDto('regions', 'name', null),
@@ -36,6 +38,20 @@ it('describes every clause of the query before compiling it', function () {
             new OrderByDefinitionDto('regions', 'name', null),
             new OrderByDefinitionDto('sales', 'short_year', 'sales.year - 2000'),
         ]);
+});
+
+it('is the only source of the select aliases, even for a field selected twice', function () {
+    $engine = Cubes::engine()->values([
+        ['key' => 'sales.amount', 'aggregation' => 'sum'],
+        ['key' => 'sales.amount', 'aggregation' => 'max'],
+    ]);
+
+    $query = $engine->queryDefinition();
+    $values = $query->selects;
+
+    expect($query->aliasOf($values[0]->origin))->toBe('v0')
+        ->and($query->aliasOf($values[1]->origin))->toBe('v1')
+        ->and($engine->get()->all())->toEqual([['sum(sales.amount)' => 390, 'max(sales.amount)' => 200]]);
 });
 
 it('compiles each clause of the query definition', function () {

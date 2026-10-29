@@ -4,33 +4,35 @@ declare(strict_types=1);
 
 namespace Julitom3\Cubes\Tests\Fixtures\Datasets;
 
-use Julitom3\Cubes\Datasets\Dataset;
-use Julitom3\Cubes\Datasets\Field;
-use Julitom3\Cubes\Datasets\Relation;
-use Julitom3\Cubes\Enums\Aggregation;
-use Julitom3\Cubes\Enums\FieldFormat;
+use Julitom3\Cubes\Datasets\Collections\FieldCollection;
+use Julitom3\Cubes\Datasets\Collections\RelationCollection;
+use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
+use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
+use Julitom3\Cubes\Datasets\Enums\Aggregation;
+use Julitom3\Cubes\Datasets\Enums\FieldFormat;
 
-class SalesDataset extends Dataset
+class SalesDataset extends DatasetContract
 {
     public function table(): string
     {
         return 'sales';
     }
 
-    public function fields(): array
+    public function fields(): FieldCollection
     {
-        return [
-            Field::metric('amount', 'Amount', format: FieldFormat::Currency),
-            Field::metric('id', 'Sales count', [Aggregation::Count]),
-            Field::dimension('year', 'Year', FieldFormat::Year, pivotable: true),
-            Field::dimension('short_year', 'Short year', FieldFormat::Integer, expression: 'sales.year - 2000'),
-        ];
+        return new FieldCollection([
+            FieldDefinitionDto::metric('amount', 'Amount', format: FieldFormat::Currency),
+            FieldDefinitionDto::metric('id', 'Sales count', [Aggregation::Count]),
+            FieldDefinitionDto::dimension('year', 'Year', FieldFormat::Year, pivotable: true),
+            FieldDefinitionDto::dimension('short_year', 'Short year', FieldFormat::Integer, expression: 'sales.year - 2000'),
+        ]);
     }
 
-    public function relations(): array
+    public function relations(): RelationCollection
     {
-        return [
-            new Relation('stores', 'store_id'),
-        ];
+        return new RelationCollection([
+            new RelationDefinitionDto('stores', 'store_id'),
+        ]);
     }
 }

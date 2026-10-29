@@ -3,14 +3,15 @@
 declare(strict_types=1);
 
 use Julitom3\Cubes\Cubes as CubesManager;
-use Julitom3\Cubes\Datasets\Dataset;
-use Julitom3\Cubes\Datasets\DatasetRegistry;
-use Julitom3\Cubes\Datasets\Field;
-use Julitom3\Cubes\Datasets\Relation;
-use Julitom3\Cubes\Enums\Aggregation;
-use Julitom3\Cubes\Enums\FieldFormat;
+use Julitom3\Cubes\Datasets\Collections\FieldCollection;
+use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
+use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
+use Julitom3\Cubes\Datasets\Enums\Aggregation;
+use Julitom3\Cubes\Datasets\Enums\FieldFormat;
 use Julitom3\Cubes\Exceptions\CubesException;
 use Julitom3\Cubes\Facades\Cubes;
+use Julitom3\Cubes\ReportEngine\DatasetRegistry;
 use Julitom3\Cubes\Tests\Fixtures\Datasets\SalesDataset;
 
 it('registers the configured datasets', function () {
@@ -41,27 +42,27 @@ it('describes the datasets with stable field keys', function () {
 });
 
 it('registers datasets at runtime', function () {
-    $dataset = new class extends Dataset
+    $dataset = new class extends DatasetContract
     {
         public function table(): string
         {
             return 'products';
         }
 
-        public function name(): string
+        public function category(): string
         {
             return 'catalog';
         }
 
-        public function fields(): array
+        public function fields(): FieldCollection
         {
-            return [Field::dimension('name')];
+            return new FieldCollection([FieldDefinitionDto::dimension('name')]);
         }
     };
 
     Cubes::register($dataset);
 
-    expect(Cubes::dataset('catalog')->field('name')->label)->toBe('Name')
+    expect(Cubes::dataset('catalog')->getField('name')->label)->toBe('Name')
         ->and(Cubes::engine()->rows([['key' => 'catalog.name']])->get()->all())->toBe([['catalog.name' => 'Widget']]);
 });
 
@@ -72,13 +73,13 @@ it('rejects classes that are not datasets', function () {
 it('rejects unsafe identifiers', function (Closure $build) {
     expect($build)->toThrow(CubesException::class, 'may only contain letters, numbers, and underscores');
 })->with([
-    'field column' => [fn () => Field::dimension('name; drop table sales')],
-    'relation table' => [fn () => new Relation('stores s', 'store_id')],
-    'relation key' => [fn () => new Relation('stores', 'store_id or 1=1')],
+    'field column' => [fn () => FieldDefinitionDto::dimension('name; drop table sales')],
+    'relation table' => [fn () => new RelationDefinitionDto('stores s', 'store_id')],
+    'relation key' => [fn () => new RelationDefinitionDto('stores', 'store_id or 1=1')],
 ]);
 
 it('allows counting fields without explicit aggregations', function () {
-    $field = Field::dimension('name');
+    $field = FieldDefinitionDto::dimension('name');
 
     expect($field->allowedAggregations())->toBe([Aggregation::Count])
         ->and($field->allows(Aggregation::Sum))->toBeFalse();

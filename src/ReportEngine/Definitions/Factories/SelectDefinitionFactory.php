@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Julitom3\Cubes\ReportEngine\Definitions\Factories;
+
+use Julitom3\Cubes\ReportEngine\Definitions\DTOs\DimensionDefinitionDto;
+use Julitom3\Cubes\ReportEngine\Definitions\DTOs\SelectDefinitionDto;
+use Julitom3\Cubes\ReportEngine\Definitions\Factories\Contracts\DefinitionFactoryContract;
+
+/**
+ * Select every row and column dimension, aliased "d{position}".
+ *
+ * @extends DefinitionFactoryContract<DimensionDefinitionDto, SelectDefinitionDto>
+ */
+final class SelectDefinitionFactory extends DefinitionFactoryContract
+{
+    protected function createDefinition(mixed $item, int $position): SelectDefinitionDto
+    {
+        return new SelectDefinitionDto(
+            origin: $item,
+            table: $item->dataset->table(),
+            column: $item->field->column,
+            expression: $item->field->expression,
+            aggregation: null,
+            alias: "d{$position}",
+        );
+    }
+}

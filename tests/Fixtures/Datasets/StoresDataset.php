@@ -4,28 +4,30 @@ declare(strict_types=1);
 
 namespace Julitom3\Cubes\Tests\Fixtures\Datasets;
 
-use Julitom3\Cubes\Datasets\Dataset;
-use Julitom3\Cubes\Datasets\Field;
-use Julitom3\Cubes\Datasets\Relation;
+use Julitom3\Cubes\Datasets\Collections\FieldCollection;
+use Julitom3\Cubes\Datasets\Collections\RelationCollection;
+use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
+use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
 
-class StoresDataset extends Dataset
+class StoresDataset extends DatasetContract
 {
     public function table(): string
     {
         return 'stores';
     }
 
-    public function fields(): array
+    public function fields(): FieldCollection
     {
-        return [
-            Field::dimension('name', 'Store'),
-        ];
+        return new FieldCollection([
+            FieldDefinitionDto::dimension('name', 'Store'),
+        ]);
     }
 
-    public function relations(): array
+    public function relations(): RelationCollection
     {
-        return [
-            new Relation('regions', 'region_id'),
-        ];
+        return new RelationCollection([
+            new RelationDefinitionDto('regions', 'region_id'),
+        ]);
     }
 }

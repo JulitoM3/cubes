@@ -8,7 +8,7 @@ use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
-use Julitom3\Cubes\Enums\FieldFormat;
+use Julitom3\Cubes\Datasets\Enums\FieldFormat;
 
 final readonly class DatasetWriter
 {
@@ -75,7 +75,7 @@ final readonly class DatasetWriter
             $format = FieldFormat::fromColumnType($column['type_name']);
 
             $lines[] = sprintf(
-                '            Field::dimension(%s, %s, FieldFormat::%s),',
+                '            FieldDefinitionDto::dimension(%s, %s, FieldFormat::%s),',
                 $this->literal($column['name']),
                 $this->literal(Str::headline($column['name'])),
                 $format->name,
@@ -91,7 +91,7 @@ final readonly class DatasetWriter
 
         foreach ($this->schema->relations($table) as $relation) {
             $lines[] = sprintf(
-                '            new Relation(%s, %s, %s),',
+                '            new RelationDefinitionDto(%s, %s, %s),',
                 $this->literal($relation->table),
                 $this->literal($relation->localKey),
                 $this->literal($relation->foreignKey),

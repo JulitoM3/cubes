@@ -51,34 +51,36 @@ php artisan vendor:publish --tag="cubes-stubs"
 Un dataset describe una tabla: los campos que los reportes pueden usar y sus relaciones con otros datasets.
 
 ```php
-use Julitom3\Cubes\Datasets\Dataset;
-use Julitom3\Cubes\Datasets\Field;
-use Julitom3\Cubes\Datasets\Relation;
-use Julitom3\Cubes\Enums\Aggregation;
-use Julitom3\Cubes\Enums\FieldFormat;
+use Julitom3\Cubes\Datasets\Collections\FieldCollection;
+use Julitom3\Cubes\Datasets\Collections\RelationCollection;
+use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
+use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
+use Julitom3\Cubes\Datasets\Enums\Aggregation;
+use Julitom3\Cubes\Datasets\Enums\FieldFormat;
 
-class SalesDataset extends Dataset
+class SalesDataset extends DatasetContract
 {
     public function table(): string
     {
         return 'sales';
     }
 
-    public function fields(): array
+    public function fields(): FieldCollection
     {
-        return [
-            Field::metric('amount', 'Monto', format: FieldFormat::Currency),
-            Field::metric('id', 'Número de ventas', [Aggregation::Count]),
-            Field::dimension('year', 'Año', FieldFormat::Year, pivotable: true),
-            Field::dimension('month', 'Mes', expression: 'MONTH(sales.sold_at)'),
-        ];
+        return new FieldCollection([
+            FieldDefinitionDto::metric('amount', 'Monto', format: FieldFormat::Currency),
+            FieldDefinitionDto::metric('id', 'Número de ventas', [Aggregation::Count]),
+            FieldDefinitionDto::dimension('year', 'Año', FieldFormat::Year, pivotable: true),
+            FieldDefinitionDto::dimension('month', 'Mes', expression: 'MONTH(sales.sold_at)'),
+        ]);
     }
 
-    public function relations(): array
+    public function relations(): RelationCollection
     {
-        return [
-            new Relation('stores', 'store_id'), // sales.store_id = stores.id
-        ];
+        return new RelationCollection([
+            new RelationDefinitionDto('stores', 'store_id'), // sales.store_id = stores.id
+        ]);
     }
 }
 ```
@@ -99,18 +101,19 @@ Las dimensiones se usan como filas y columnas; las métricas se agregan como val
 
 ### Relaciones
 
-Una `Relation` describe cómo un dataset se une con otro: `new Relation($table, $localKey, $foreignKey = 'id', $type = JoinType::Left)` significa `{tabla del dataset}.{localKey} = {table}.{foreignKey}`. Las tablas y llaves deben ser identificadores válidos.
+Una `RelationDefinitionDto` describe cómo un dataset se une con otro: `new RelationDefinitionDto($table, $localKey, $foreignKey = 'id', $joinType = JoinType::Left)` significa `{tabla del dataset}.{localKey} = {table}.{foreignKey}`. Las tablas y llaves deben ser identificadores válidos.
 
 ```php
-use Julitom3\Cubes\Datasets\Relation;
-use Julitom3\Cubes\Enums\JoinType;
+use Julitom3\Cubes\Datasets\Collections\RelationCollection;
+use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
+use Julitom3\Cubes\Datasets\Enums\JoinType;
 
-public function relations(): array
+public function relations(): RelationCollection
 {
-    return [
-        new Relation('stores', 'store_id'),                             // left join stores on sales.store_id = stores.id
-        new Relation('products', 'product_id', 'id', JoinType::Inner),  // inner join products on sales.product_id = products.id
-    ];
+    return new RelationCollection([
+        new RelationDefinitionDto('stores', 'store_id'),                             // left join stores on sales.store_id = stores.id
+        new RelationDefinitionDto('products', 'product_id', 'id', JoinType::Inner),  // inner join products on sales.product_id = products.id
+    ]);
 }
 ```
 
@@ -136,7 +139,7 @@ O lista las tablas en `cubes.generator.tables` y genéralas todas. Los datasets 
 php artisan cubes:sync
 ```
 
-Todos los campos generados son dimensiones; cambia a `Field::metric()` los que quieras agregar como valores.
+Todos los campos generados son dimensiones; cambia a `FieldDefinitionDto::metric()` los que quieras agregar como valores.
 
 <a id="es-uso"></a>
 
@@ -160,7 +163,7 @@ $engine->matrixRender();  // Tabla dinámica con encabezados (colspan/rowspan) y
 $engine->build();         // El query builder compilado
 ```
 
-Cada engine contiene un solo reporte, así que llama a `Cubes::engine()` para cada uno. La tabla base es el dataset del primer valor. Usa `from()` para elegirla tú:
+`get()` y `matrixRender()` ejecutan la consulta cada vez que los llamas; si necesitas ambos, ten en cuenta que serán dos consultas. Cada engine contiene un solo reporte, así que llama a `Cubes::engine()` para cada uno. La tabla base es el dataset del primer valor. Usa `from()` para elegirla tú:
 
 ```php
 Cubes::engine()->from('regions')->rows([['key' => 'regions.name']])->values([['key' => 'sales.id', 'aggregation' => 'count']]);
@@ -170,14 +173,40 @@ Cubes::engine()->from('regions')->rows([['key' => 'regions.name']])->values([['k
 
 ### Cómo se construye un reporte
 
-Cada paso produce un DTO, así que puedes inspeccionarlo o probarlo antes de ejecutar cualquier SQL:
+`ReportEngine` solo orquesta; cada paso tiene su propia clase y produce un DTO, así que puedes inspeccionarlo o probarlo antes de ejecutar cualquier SQL. Hay dos caminos que comparten el `ReportDefinitionDto`:
 
-1. `FieldsResolver` convierte los arreglos en `DimensionDefinitionDto` y `ValueDefinitionDto`, y rechaza las keys y agregaciones que ningún dataset expone.
-2. `$engine->reportDefinition()` devuelve el `ReportDefinitionDto`: el dataset base con las filas, columnas y valores.
-3. `$engine->queryDefinition()` devuelve el `QueryDefinitionDto`, el contrato de la consulta, con un DTO por cláusula: `FromDefinitionDto`, `SelectDefinitionDto`, `JoinDefinitionDto`, `GroupByDefinitionDto` y `OrderByDefinitionDto`.
-4. `SqlCompiler` compila la definición de la consulta con un compilador por cláusula: `FromCompiler`, `JoinCompiler`, `SelectCompiler`, `GroupByCompiler` y `OrderByCompiler`.
+```text
+rows() / columns() / values()
+  └─ FieldsResolver ─► ReportDefinition ─► ReportDefinitionDto
+                                              │
+       ┌──────────────────────────────────────┴───────────────────────────┐
+       ▼ consulta                                                         ▼ matriz
+QueryDefinition                                                    MatrixDefinition ─► MatrixDefinitionDto
+  ├─ DatasetGraphDefinition   ─► DatasetGraphDefinitionDto           MatrixTreeFactory ─► MatrixLayoutDto
+  ├─ DatasetTraversalResolver ─► DatasetRootDto                        (MatrixWalker: árbol de filas y de columnas)
+  ├─ DatasetPathDefinition    ─► DatasetPathDto (BFS)                MatrixRenderFactory
+  ├─ From/Join/Select/Value/GroupBy/OrderBy DefinitionFactory          ├─ HeaderWalker ─► RowHeaderWalker + ColumnHeaderWalker
+  └─► QueryDefinitionDto ─► SqlCompiler ─► Builder                     └─ BodyWalker
+                                                                     ─► MatrixRenderDto
+```
 
-Para cambiar el SQL que se genera, modifica el DTO de la cláusula y su compilador; no agregues SQL al query builder fuera de los compiladores.
+1. **Campos.** `FieldsResolver` convierte los arreglos en `DimensionDefinitionDto` y `ValueDefinitionDto`, y rechaza las keys y agregaciones que ningún dataset expone. `ReportDefinition` los acumula y `$engine->reportDefinition()` devuelve el `ReportDefinitionDto`.
+2. **Grafo.** `DatasetGraphDefinition` arma un nodo (`DatasetNodeDto`) por tabla y una arista (`DatasetEdgeDto`) por relación en cada sentido. En una arista, `localKey` siempre pertenece a la tabla `from` y `foreignKey` a la tabla `to`.
+3. **Raíz.** `DatasetTraversalResolver` elige la tabla base: la de `from()`, si no la del primer valor y, si no hay valores, el dataset seleccionado con más relaciones. Las demás tablas seleccionadas son los destinos (`DatasetRootDto`).
+4. **Caminos.** `DatasetPathDefinition` busca el camino más corto a cada destino con BFS (`DatasetPathDto`), y `JoinDefinitionFactory` convierte cada par del camino en un `JoinDefinitionDto`, uniendo cada tabla una sola vez y nunca de nuevo la tabla base.
+5. **Consulta.** `$engine->queryDefinition()` devuelve el `QueryDefinitionDto`, el contrato de la consulta, con un DTO por cláusula: `FromDefinitionDto`, `SelectDefinitionDto`, `JoinDefinitionDto`, `GroupByDefinitionDto` y `OrderByDefinitionDto`. `SqlCompiler` lo compila con un compilador por cláusula: `FromCompiler`, `JoinCompiler`, `SelectCompiler`, `GroupByCompiler` y `OrderByCompiler`.
+6. **Matriz.** `MatrixTreeFactory` arma un árbol de filas y uno de columnas (`MatrixNodeDto`) a partir de los registros. `HeaderWalker` combina los encabezados de `RowHeaderWalker` y `ColumnHeaderWalker`, y `BodyWalker` produce una fila por hoja del árbol de filas, con una celda por hoja de columnas y valor, en el mismo orden que los encabezados.
+
+Para cambiar el SQL que se genera, modifica el DTO de la cláusula, su factory y su compilador; no agregues SQL al query builder fuera de los compiladores.
+
+`$engine->matrixRender()` devuelve un `MatrixRenderDto`, que se serializa a arreglos simples (`toArray()` o JSON) para que cualquier frontend lo dibuje:
+
+```json
+{
+    "headers": [[{ "label": "Region", "kind": "dimension", "depth": 0, "colspan": 1, "rowspan": 1, "isLeaf": false, "value": null }, ...]],
+    "body": { "rows": [{ "headers": [{ "label": "North", "value": "North", ... }], "cells": [{ "value": 130, "format": "currency" }, ...] }] }
+}
+```
 
 <a id="es-frontend"></a>
 
@@ -216,7 +245,7 @@ El frontend puede devolver los elementos de la paleta tal como los soltó el usu
 }
 ```
 
-Las keys, agregaciones y datasets se validan contra los datasets registrados, y el SQL se construye solo a partir de las definiciones de los datasets, así que un reporte solo puede usar lo que tus datasets exponen. Los labels se muestran, nunca se compilan. Para no exponer nombres de tablas, sobrescribe `name()` en el dataset y dale un nombre lógico.
+Las keys, agregaciones y datasets se validan contra los datasets registrados, y el SQL se construye solo a partir de las definiciones de los datasets, así que un reporte solo puede usar lo que tus datasets exponen. Los labels se muestran, nunca se compilan. Para no exponer nombres de tablas, sobrescribe `category()` en el dataset y dale un nombre lógico.
 
 <a id="es-creditos"></a>
 
@@ -268,34 +297,36 @@ php artisan vendor:publish --tag="cubes-stubs"
 A dataset describes a table: the fields reports can use and its relations to other datasets.
 
 ```php
-use Julitom3\Cubes\Datasets\Dataset;
-use Julitom3\Cubes\Datasets\Field;
-use Julitom3\Cubes\Datasets\Relation;
-use Julitom3\Cubes\Enums\Aggregation;
-use Julitom3\Cubes\Enums\FieldFormat;
+use Julitom3\Cubes\Datasets\Collections\FieldCollection;
+use Julitom3\Cubes\Datasets\Collections\RelationCollection;
+use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
+use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
+use Julitom3\Cubes\Datasets\Enums\Aggregation;
+use Julitom3\Cubes\Datasets\Enums\FieldFormat;
 
-class SalesDataset extends Dataset
+class SalesDataset extends DatasetContract
 {
     public function table(): string
     {
         return 'sales';
     }
 
-    public function fields(): array
+    public function fields(): FieldCollection
     {
-        return [
-            Field::metric('amount', 'Amount', format: FieldFormat::Currency),
-            Field::metric('id', 'Sales count', [Aggregation::Count]),
-            Field::dimension('year', 'Year', FieldFormat::Year, pivotable: true),
-            Field::dimension('month', 'Month', expression: 'MONTH(sales.sold_at)'),
-        ];
+        return new FieldCollection([
+            FieldDefinitionDto::metric('amount', 'Amount', format: FieldFormat::Currency),
+            FieldDefinitionDto::metric('id', 'Sales count', [Aggregation::Count]),
+            FieldDefinitionDto::dimension('year', 'Year', FieldFormat::Year, pivotable: true),
+            FieldDefinitionDto::dimension('month', 'Month', expression: 'MONTH(sales.sold_at)'),
+        ]);
     }
 
-    public function relations(): array
+    public function relations(): RelationCollection
     {
-        return [
-            new Relation('stores', 'store_id'), // sales.store_id = stores.id
-        ];
+        return new RelationCollection([
+            new RelationDefinitionDto('stores', 'store_id'), // sales.store_id = stores.id
+        ]);
     }
 }
 ```
@@ -316,18 +347,19 @@ Dimensions are used as rows and columns; metrics are aggregated as values. A fie
 
 ### Relations
 
-A `Relation` describes how a dataset joins another one: `new Relation($table, $localKey, $foreignKey = 'id', $type = JoinType::Left)` means `{dataset table}.{localKey} = {table}.{foreignKey}`. Tables and keys must be valid identifiers.
+A `RelationDefinitionDto` describes how a dataset joins another one: `new RelationDefinitionDto($table, $localKey, $foreignKey = 'id', $joinType = JoinType::Left)` means `{dataset table}.{localKey} = {table}.{foreignKey}`. Tables and keys must be valid identifiers.
 
 ```php
-use Julitom3\Cubes\Datasets\Relation;
-use Julitom3\Cubes\Enums\JoinType;
+use Julitom3\Cubes\Datasets\Collections\RelationCollection;
+use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
+use Julitom3\Cubes\Datasets\Enums\JoinType;
 
-public function relations(): array
+public function relations(): RelationCollection
 {
-    return [
-        new Relation('stores', 'store_id'),                             // left join stores on sales.store_id = stores.id
-        new Relation('products', 'product_id', 'id', JoinType::Inner),  // inner join products on sales.product_id = products.id
-    ];
+    return new RelationCollection([
+        new RelationDefinitionDto('stores', 'store_id'),                             // left join stores on sales.store_id = stores.id
+        new RelationDefinitionDto('products', 'product_id', 'id', JoinType::Inner),  // inner join products on sales.product_id = products.id
+    ]);
 }
 ```
 
@@ -353,7 +385,7 @@ Or list tables in `cubes.generator.tables` and generate them all. Existing datas
 php artisan cubes:sync
 ```
 
-Every generated field is a dimension; change the ones you want to aggregate as values to `Field::metric()`.
+Every generated field is a dimension; change the ones you want to aggregate as values to `FieldDefinitionDto::metric()`.
 
 <a id="en-usage"></a>
 
@@ -377,7 +409,7 @@ $engine->matrixRender();  // Pivot table with headers (colspan/rowspan) and alig
 $engine->build();         // The compiled query builder
 ```
 
-Every engine holds a single report, so call `Cubes::engine()` for each one. The base table is the dataset of the first value. Use `from()` to choose it yourself:
+`get()` and `matrixRender()` run the query every time you call them; if you need both, that is two queries. Every engine holds a single report, so call `Cubes::engine()` for each one. The base table is the dataset of the first value. Use `from()` to choose it yourself:
 
 ```php
 Cubes::engine()->from('regions')->rows([['key' => 'regions.name']])->values([['key' => 'sales.id', 'aggregation' => 'count']]);
@@ -387,14 +419,40 @@ Cubes::engine()->from('regions')->rows([['key' => 'regions.name']])->values([['k
 
 ### How a Report Is Built
 
-Each step produces a DTO, so you can inspect or test it before any SQL runs:
+`ReportEngine` only orchestrates; every step has its own class and produces a DTO, so you can inspect or test it before any SQL runs. There are two paths that share the `ReportDefinitionDto`:
 
-1. `FieldsResolver` turns the arrays into `DimensionDefinitionDto` and `ValueDefinitionDto`, rejecting keys and aggregations that no dataset exposes.
-2. `$engine->reportDefinition()` returns the `ReportDefinitionDto`: the base dataset with the rows, columns, and values.
-3. `$engine->queryDefinition()` returns the `QueryDefinitionDto`, the contract of the query, with one DTO per clause: `FromDefinitionDto`, `SelectDefinitionDto`, `JoinDefinitionDto`, `GroupByDefinitionDto`, and `OrderByDefinitionDto`.
-4. `SqlCompiler` compiles the query definition with one compiler per clause: `FromCompiler`, `JoinCompiler`, `SelectCompiler`, `GroupByCompiler`, and `OrderByCompiler`.
+```text
+rows() / columns() / values()
+  └─ FieldsResolver ─► ReportDefinition ─► ReportDefinitionDto
+                                              │
+       ┌──────────────────────────────────────┴───────────────────────────┐
+       ▼ query                                                            ▼ matrix
+QueryDefinition                                                    MatrixDefinition ─► MatrixDefinitionDto
+  ├─ DatasetGraphDefinition   ─► DatasetGraphDefinitionDto           MatrixTreeFactory ─► MatrixLayoutDto
+  ├─ DatasetTraversalResolver ─► DatasetRootDto                        (MatrixWalker: row and column trees)
+  ├─ DatasetPathDefinition    ─► DatasetPathDto (BFS)                MatrixRenderFactory
+  ├─ From/Join/Select/Value/GroupBy/OrderBy DefinitionFactory          ├─ HeaderWalker ─► RowHeaderWalker + ColumnHeaderWalker
+  └─► QueryDefinitionDto ─► SqlCompiler ─► Builder                     └─ BodyWalker
+                                                                     ─► MatrixRenderDto
+```
 
-To change the generated SQL, change the DTO of the clause and its compiler; do not add SQL to the query builder outside the compilers.
+1. **Fields.** `FieldsResolver` turns the arrays into `DimensionDefinitionDto` and `ValueDefinitionDto`, rejecting keys and aggregations that no dataset exposes. `ReportDefinition` collects them and `$engine->reportDefinition()` returns the `ReportDefinitionDto`.
+2. **Graph.** `DatasetGraphDefinition` builds one node (`DatasetNodeDto`) per table and one edge (`DatasetEdgeDto`) per relation in each direction. On an edge, `localKey` always belongs to the `from` table and `foreignKey` to the `to` table.
+3. **Root.** `DatasetTraversalResolver` chooses the base table: the one given to `from()`, else the one of the first value, and without values the selected dataset with the most relations. The other selected tables are the destinations (`DatasetRootDto`).
+4. **Paths.** `DatasetPathDefinition` finds the shortest path to each destination with a BFS (`DatasetPathDto`), and `JoinDefinitionFactory` turns each pair of the path into a `JoinDefinitionDto`, joining each table once and never the base table again.
+5. **Query.** `$engine->queryDefinition()` returns the `QueryDefinitionDto`, the contract of the query, with one DTO per clause: `FromDefinitionDto`, `SelectDefinitionDto`, `JoinDefinitionDto`, `GroupByDefinitionDto`, and `OrderByDefinitionDto`. `SqlCompiler` compiles it with one compiler per clause: `FromCompiler`, `JoinCompiler`, `SelectCompiler`, `GroupByCompiler`, and `OrderByCompiler`.
+6. **Matrix.** `MatrixTreeFactory` builds a row tree and a column tree (`MatrixNodeDto`) from the records. `HeaderWalker` combines the headers of `RowHeaderWalker` and `ColumnHeaderWalker`, and `BodyWalker` produces one row per row leaf, with one cell per column leaf and value, in header order.
+
+To change the generated SQL, change the DTO of the clause, its factory, and its compiler; do not add SQL to the query builder outside the compilers.
+
+`$engine->matrixRender()` returns a `MatrixRenderDto`, which serializes to plain arrays (`toArray()` or JSON) so any frontend can draw it:
+
+```json
+{
+    "headers": [[{ "label": "Region", "kind": "dimension", "depth": 0, "colspan": 1, "rowspan": 1, "isLeaf": false, "value": null }, ...]],
+    "body": { "rows": [{ "headers": [{ "label": "North", "value": "North", ... }], "cells": [{ "value": 130, "format": "currency" }, ...] }] }
+}
+```
 
 <a id="en-frontend"></a>
 
@@ -433,7 +491,7 @@ The frontend can send the dropped palette items back as they are; only `key`, `a
 }
 ```
 
-Keys, aggregations, and datasets are validated against the registered datasets, and the SQL is built only from the dataset definitions, so a report can only use what your datasets expose. Labels are displayed, never compiled. To avoid exposing table names, override `name()` in a dataset to give it a logical name.
+Keys, aggregations, and datasets are validated against the registered datasets, and the SQL is built only from the dataset definitions, so a report can only use what your datasets expose. Labels are displayed, never compiled. To avoid exposing table names, override `category()` in a dataset to give it a logical name.
 
 <a id="en-credits"></a>
 

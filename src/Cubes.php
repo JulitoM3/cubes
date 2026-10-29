@@ -5,15 +5,17 @@ declare(strict_types=1);
 namespace Julitom3\Cubes;
 
 use Illuminate\Contracts\Container\Container;
-use Julitom3\Cubes\Datasets\Dataset;
-use Julitom3\Cubes\Datasets\DatasetRegistry;
-use Julitom3\Cubes\Engine\ReportEngine;
+use Julitom3\Cubes\Catalog\CatalogFactory;
+use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Julitom3\Cubes\ReportEngine\DatasetRegistry;
+use Julitom3\Cubes\ReportEngine\ReportEngine;
 
 class Cubes
 {
     public function __construct(
         private readonly Container $container,
         private readonly DatasetRegistry $registry,
+        private readonly CatalogFactory $catalogFactory,
     ) {}
 
     /**
@@ -25,20 +27,20 @@ class Cubes
     }
 
     /**
-     * @param  class-string<Dataset>|Dataset  $dataset
+     * @param  class-string<DatasetContract>|DatasetContract  $dataset
      */
-    public function register(string|Dataset $dataset): Dataset
+    public function register(string|DatasetContract $dataset): DatasetContract
     {
         return $this->registry->register($dataset);
     }
 
-    public function dataset(string $name): Dataset
+    public function dataset(string $name): DatasetContract
     {
         return $this->registry->get($name);
     }
 
     /**
-     * @return array<string, Dataset>
+     * @return array<string, DatasetContract>
      */
     public function datasets(): array
     {
@@ -52,6 +54,6 @@ class Cubes
      */
     public function catalog(): array
     {
-        return array_values(array_map(fn (Dataset $dataset): array => $dataset->toArray(), $this->registry->all()));
+        return $this->catalogFactory->create();
     }
 }
