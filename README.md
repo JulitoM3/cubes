@@ -36,7 +36,15 @@ Instala el package con Composer:
 composer require julitom3/cubes
 ```
 
-Publica el archivo de configuración, las traducciones o el stub de los datasets:
+Después ejecuta el instalador, que publica el archivo de configuración y las traducciones:
+
+```bash
+php artisan cubes:install
+php artisan cubes:install --with-stubs   # publica también el stub de los datasets para personalizarlo
+php artisan cubes:install --force        # sobrescribe los archivos que ya publicaste
+```
+
+También puedes publicar cada recurso por separado:
 
 ```bash
 php artisan vendor:publish --tag="cubes-config"
@@ -282,7 +290,15 @@ You can install the package via Composer:
 composer require julitom3/cubes
 ```
 
-Publish the configuration file, the translations, or the dataset stub:
+Then run the installer, which publishes the configuration file and the translations:
+
+```bash
+php artisan cubes:install
+php artisan cubes:install --with-stubs   # also publish the dataset stub to customize it
+php artisan cubes:install --force        # overwrite files you already published
+```
+
+You can also publish each resource on its own:
 
 ```bash
 php artisan vendor:publish --tag="cubes-config"

@@ -13,7 +13,9 @@ Use this skill when a Laravel application needs reports, pivot tables, or a repo
 
 ## Workflow
 
-### 1. Define datasets
+### 1. Install and define datasets
+
+- After `composer require julitom3/cubes`, run `php artisan cubes:install` to publish the config and translations; add `--with-stubs` to also publish the dataset stub, and `--force` to overwrite published files.
 
 - Generate a dataset per table with `php artisan cubes:make-dataset {table}`, or list tables in `cubes.generator.tables` and run `php artisan cubes:sync`.
 - Datasets extend `Julitom3\Cubes\Datasets\Contracts\DatasetContract` and implement `table()`, `fields(): FieldCollection`, and optionally `relations(): RelationCollection` and `category()`.

@@ -26,5 +26,8 @@ return [
         'skipped' => 'omitido, ya existe',
         'written' => 'escrito',
         'synced' => ':count dataset(s) escritos.',
+        'published' => 'publicado',
+        'installed' => 'Cubes se instaló correctamente.',
+        'next_steps' => 'Crea tus datasets con php artisan cubes:make-dataset {tabla} y regístralos en config/cubes.php.',
     ],
 ];

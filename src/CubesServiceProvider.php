@@ -6,6 +6,7 @@ namespace Julitom3\Cubes;
 
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
+use Julitom3\Cubes\Console\Commands\InstallCommand;
 use Julitom3\Cubes\Console\Commands\MakeDatasetCommand;
 use Julitom3\Cubes\Console\Commands\SyncDatasetsCommand;
 use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
@@ -62,6 +63,7 @@ class CubesServiceProvider extends ServiceProvider
         ], 'cubes-stubs');
 
         $this->commands([
+            InstallCommand::class,
             MakeDatasetCommand::class,
             SyncDatasetsCommand::class,
         ]);
