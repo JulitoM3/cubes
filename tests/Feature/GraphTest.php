@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Schema;
 use Julitom3\Cubes\Datasets\CubeSchema;
+use Julitom3\Cubes\Datasets\DTOs\Dimension;
+use Julitom3\Cubes\Datasets\DTOs\Relation;
 use Julitom3\Cubes\Datasets\Enums\JoinType;
 use Julitom3\Cubes\Exceptions\CubesException;
 use Julitom3\Cubes\Facades\Cubes;
@@ -151,7 +153,7 @@ it('keeps the join type of the relation in both directions', function () {
 
         public function cubeSchema(): CubeSchema
         {
-            return CubeSchema::make()->dimensions(['name'])->relations(['region' => JoinType::Inner]);
+            return CubeSchema::make()->dimensions(new Dimension('name'))->relations(new Relation('region', JoinType::Inner));
         }
     });
 

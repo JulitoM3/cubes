@@ -8,6 +8,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
 use Julitom3\Cubes\Console\Commands\InstallCommand;
+use Julitom3\Cubes\Console\Commands\ListCommand;
 use Julitom3\Cubes\Datasets\ModelDiscovery;
 use Julitom3\Cubes\ReportEngine\DatasetRegistry;
 use Julitom3\Cubes\ReportEngine\Definitions\DatasetGraphDefinition;
@@ -63,6 +64,7 @@ class CubesServiceProvider extends ServiceProvider
 
         $this->commands([
             InstallCommand::class,
+            ListCommand::class,
         ]);
     }
 }

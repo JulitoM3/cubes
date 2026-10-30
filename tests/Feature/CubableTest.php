@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Julitom3\Cubes\Datasets\CubeSchema;
+use Julitom3\Cubes\Datasets\DTOs\Dimension;
+use Julitom3\Cubes\Datasets\DTOs\Metric;
+use Julitom3\Cubes\Datasets\DTOs\Relation;
 use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
 use Julitom3\Cubes\Datasets\Enums\FieldFormat;
-use Julitom3\Cubes\Datasets\Enums\FieldType;
 use Julitom3\Cubes\Datasets\Enums\JoinType;
 use Julitom3\Cubes\Datasets\ModelDataset;
 use Julitom3\Cubes\Exceptions\CubesException;
@@ -33,7 +35,7 @@ function storeModel(CubeSchema $definition): Model
 
         protected $table = 'stores';
 
-        protected $casts = ['created_at' => 'datetime', 'region_id' => 'integer'];
+        protected $casts = ['id' => 'integer', 'created_at' => 'datetime', 'region_id' => 'integer'];
 
         public function cubeSchema(): CubeSchema
         {
@@ -64,24 +66,25 @@ function storeModel(CubeSchema $definition): Model
     return $model;
 }
 
-it('builds the dataset from the table, casts, and definition of the model', function () {
+it('builds the dataset from the table, casts, and schema of the model, keeping declared formats', function () {
     $dataset = new ModelDataset(storeModel(CubeSchema::make()
-        ->dimensions(['name', 'created_at'])
-        ->metrics(['region_id'])));
+        ->dimensions(new Dimension('name'), new Dimension('created_at'))
+        ->metrics(new Metric('region_id'), new Metric('id', format: FieldFormat::Decimal))));
 
     $fields = $dataset->fieldMap();
 
     expect($dataset->table())->toBe('stores')
         ->and($dataset->category())->toBe('stores')
         ->and($dataset->label())->toBe('Stores')
-        ->and(array_keys($fields))->toBe(['name', 'created_at', 'region_id'])
-        ->and($fields['name']->type)->toBe(FieldType::Dimension)
-        ->and($fields['name']->format)->toBe(FieldFormat::Text)
+        ->and(array_keys($fields))->toBe(['name', 'created_at', 'region_id', 'id'])
+        ->and($fields['name'])->toBeInstanceOf(Dimension::class)
+        ->and($fields['name']->format())->toBe(FieldFormat::Text)
         ->and($fields['name']->label)->toBe('Name')
-        ->and($fields['created_at']->format)->toBe(FieldFormat::DateTime)
-        ->and($fields['region_id']->type)->toBe(FieldType::Metric)
-        ->and($fields['region_id']->format)->toBe(FieldFormat::Integer)
-        ->and($fields['region_id']->label)->toBe('Region Id');
+        ->and($fields['created_at']->format())->toBe(FieldFormat::DateTime)
+        ->and($fields['region_id'])->toBeInstanceOf(Metric::class)
+        ->and($fields['region_id']->format())->toBe(FieldFormat::Integer)
+        ->and($fields['region_id']->label)->toBe('Region Id')
+        ->and($fields['id']->format())->toBe(FieldFormat::Decimal);
 });
 
 it('lets the definition name and label the dataset', function () {
@@ -93,7 +96,7 @@ it('lets the definition name and label the dataset', function () {
 
 it('reads the join keys from the relation methods of the model', function () {
     $belongsTo = (new ModelDataset(new Store))->relations()->all();
-    $hasMany = (new ModelDataset(storeModel(CubeSchema::make()->relations(['sales' => JoinType::Inner]))))->relations()->all();
+    $hasMany = (new ModelDataset(storeModel(CubeSchema::make()->relations(new Relation('sales', JoinType::Inner)))))->relations()->all();
 
     expect($belongsTo)->toEqual([new RelationDefinitionDto('regions', 'region_id', 'id', JoinType::Left)])
         ->and($hasMany)->toEqual([new RelationDefinitionDto('sales', 'id', 'store_id', JoinType::Inner)]);
@@ -101,8 +104,8 @@ it('reads the join keys from the relation methods of the model', function () {
 
 it('joins through a has many relation declared on the other side', function () {
     app(DatasetRegistry::class)->register(storeModel(CubeSchema::make()
-        ->dimensions(['name'])
-        ->relations(['sales'])));
+        ->dimensions(new Dimension('name'))
+        ->relations(new Relation('sales'))));
 
     $sql = Cubes::engine()
         ->from('stores')
@@ -115,7 +118,7 @@ it('joins through a has many relation declared on the other side', function () {
 });
 
 it('rejects relations it cannot turn into a join', function (string $relation) {
-    expect(fn () => (new ModelDataset(storeModel(CubeSchema::make()->relations([$relation]))))->relations())
+    expect(fn () => (new ModelDataset(storeModel(CubeSchema::make()->relations(new Relation($relation)))))->relations())
         ->toThrow(CubesException::class, "The relation [{$relation}] of ");
 })->with(['belongs to many' => 'products', 'not a relation' => 'notARelation', 'missing method' => 'missing']);
 

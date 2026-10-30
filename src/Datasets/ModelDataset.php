@@ -12,9 +12,9 @@ use Julitom3\Cubes\Datasets\Collections\FieldCollection;
 use Julitom3\Cubes\Datasets\Collections\RelationCollection;
 use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
 use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
+use Julitom3\Cubes\Datasets\DTOs\Relation;
 use Julitom3\Cubes\Datasets\DTOs\RelationDefinitionDto;
 use Julitom3\Cubes\Datasets\Enums\FieldFormat;
-use Julitom3\Cubes\Datasets\Enums\FieldType;
 use Julitom3\Cubes\Datasets\Enums\JoinType;
 use Julitom3\Cubes\Exceptions\CubesException;
 use Julitom3\Cubes\Traits\Cubable;
@@ -70,34 +70,31 @@ final class ModelDataset extends DatasetContract
     public function fields(): FieldCollection
     {
         return new FieldCollection(array_map(
-            fn (array $field): FieldDefinitionDto => $field[1] instanceof FieldDefinitionDto
-                ? $field[1]
-                : $this->fieldFromColumn($field[0], $field[1]),
+            fn (FieldDefinitionDto $field): FieldDefinitionDto => $this->formatFromCast($field),
             $this->cubeSchema->getFields(),
         ));
     }
 
     public function relations(): RelationCollection
     {
-        $relations = [];
-
-        foreach ($this->cubeSchema->getRelations() as $name => $joinType) {
-            $relations[] = $this->relationFromMethod($name, $joinType);
-        }
-
-        return new RelationCollection($relations);
+        return new RelationCollection(array_map(
+            fn (Relation $relation): RelationDefinitionDto => $this->relationFromMethod($relation->name, $relation->joinType),
+            $this->cubeSchema->getRelations(),
+        ));
     }
 
     /**
-     * A field named after a column, formatted by the cast of that column.
+     * A field without a declared format takes it from the cast of its column, or from its default.
      */
-    private function fieldFromColumn(FieldType $type, string $column): FieldDefinitionDto
+    private function formatFromCast(FieldDefinitionDto $field): FieldDefinitionDto
     {
-        $format = FieldFormat::fromCast($this->model->getCasts()[$column] ?? null);
+        if ($field->format !== null) {
+            return $field;
+        }
 
-        return $type === FieldType::Metric
-            ? FieldDefinitionDto::metric($column, format: $format ?? FieldFormat::Integer)
-            : FieldDefinitionDto::dimension($column, format: $format ?? FieldFormat::Text);
+        $cast = $this->model->getCasts()[$field->column] ?? null;
+
+        return $field->withFormat(FieldFormat::fromCast($cast) ?? $field->defaultFormat());
     }
 
     /**

@@ -11,21 +11,21 @@ use Julitom3\Cubes\Datasets\Enums\FieldType;
 use Julitom3\Cubes\Datasets\Support\Identifier;
 use Julitom3\Cubes\Exceptions\CubesException;
 
-final readonly class FieldDefinitionDto
+/**
+ * A field of a dataset, declared as a Dimension or a Metric in the cube schema of a model.
+ */
+abstract readonly class FieldDefinitionDto
 {
     public string $label;
 
     /**
-     * @param  list<Aggregation>  $aggregations  Aggregations allowed when the field is used as a value.
+     * @param  FieldFormat|null  $format  Null to take the format from the cast of the column.
      * @param  string|null  $expression  Trusted SQL used instead of the column, e.g. "YEAR(sales.sold_at)".
      */
     public function __construct(
         public string $column,
         ?string $label = null,
-        public FieldType $type = FieldType::Dimension,
-        public FieldFormat $format = FieldFormat::Text,
-        public array $aggregations = [],
-        public bool $pivotable = false,
+        public ?FieldFormat $format = null,
         public ?string $expression = null,
     ) {
         if (! Identifier::isValid($column)) {
@@ -35,61 +35,36 @@ final readonly class FieldDefinitionDto
         $this->label = $label ?? Str::headline($column);
     }
 
-    /**
-     * Define a field that rows and columns can be grouped by.
-     */
-    public static function dimension(
-        string $column,
-        ?string $label = null,
-        FieldFormat $format = FieldFormat::Text,
-        bool $pivotable = false,
-        ?string $expression = null,
-    ): self {
-        return new self(
-            column: $column,
-            label: $label,
-            type: FieldType::Dimension,
-            format: $format,
-            pivotable: $pivotable,
-            expression: $expression,
-        );
-    }
+    abstract public function type(): FieldType;
 
     /**
-     * Define a numeric field that values are aggregated from.
-     *
-     * @param  list<Aggregation>  $aggregations
+     * The same field with the given format.
      */
-    public static function metric(
-        string $column,
-        ?string $label = null,
-        array $aggregations = [Aggregation::Sum, Aggregation::Avg, Aggregation::Min, Aggregation::Max],
-        FieldFormat $format = FieldFormat::Integer,
-        ?string $expression = null,
-    ): self {
-        return new self(
-            column: $column,
-            label: $label,
-            type: FieldType::Metric,
-            format: $format,
-            aggregations: $aggregations,
-            expression: $expression,
-        );
+    abstract public function withFormat(FieldFormat $format): static;
+
+    /**
+     * The format used when none is declared and the column has no known cast.
+     */
+    abstract public function defaultFormat(): FieldFormat;
+
+    public function format(): FieldFormat
+    {
+        return $this->format ?? $this->defaultFormat();
     }
 
     public function isDimension(): bool
     {
-        return $this->type === FieldType::Dimension;
+        return $this->type() === FieldType::Dimension;
     }
 
     /**
-     * The aggregations allowed for this field, falling back to COUNT.
+     * The aggregations allowed when the field is used as a value.
      *
      * @return non-empty-list<Aggregation>
      */
     public function allowedAggregations(): array
     {
-        return $this->aggregations !== [] ? $this->aggregations : [Aggregation::Count];
+        return [Aggregation::Count];
     }
 
     public function allows(Aggregation $aggregation): bool

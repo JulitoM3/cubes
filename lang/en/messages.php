@@ -21,6 +21,11 @@ return [
 
     'commands' => [
         'published' => 'published',
+        'list' => 'Models that can be used as Cubes datasets:',
+        'list_headers' => ['Model', 'Dataset', 'Table', 'Dimensions', 'Metrics', 'Relations'],
+        'auto_discover_enabled' => 'Model auto-discovery is enabled in: :paths',
+        'auto_discover_disabled' => 'Model auto-discovery is disabled; the models come from config/cubes.models.',
+        'no_models' => 'No Cubable models were found.',
         'installed' => 'Cubes installed successfully.',
         'next_steps' => 'Add the Cubable trait to your models and define their dimensions, metrics, and relations in cubeSchema().',
     ],

@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Julitom3\Cubes\Datasets;
 
+use Julitom3\Cubes\Datasets\DTOs\Dimension;
 use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
-use Julitom3\Cubes\Datasets\Enums\FieldType;
-use Julitom3\Cubes\Datasets\Enums\JoinType;
+use Julitom3\Cubes\Datasets\DTOs\Metric;
+use Julitom3\Cubes\Datasets\DTOs\Relation;
 
 /**
  * What a Cubable model exposes to reports, built fluently in its cubeSchema() method.
  *
- * A field is a column name, which takes its label from the column and its format from the
- * model casts, or a FieldDefinitionDto to set the label, format, aggregations, or expression.
+ * Fields are Dimension and Metric objects; a field without a format takes it from the model casts.
  */
 final class CubeSchema
 {
@@ -20,10 +20,10 @@ final class CubeSchema
 
     private ?string $label = null;
 
-    /** @var list<array{FieldType, string|FieldDefinitionDto}> */
+    /** @var list<FieldDefinitionDto> */
     private array $fields = [];
 
-    /** @var array<string, JoinType> */
+    /** @var array<string, Relation> */
     private array $relations = [];
 
     public static function make(): self
@@ -52,47 +52,33 @@ final class CubeSchema
     }
 
     /**
-     * The fields that rows and columns can be grouped by.
-     *
-     * @param  list<string|FieldDefinitionDto>  $fields
+     * The fields that rows and columns can be grouped by. Variadic so PHP rejects anything but a Dimension.
      */
-    public function dimensions(array $fields): self
+    public function dimensions(Dimension ...$dimensions): self
     {
-        foreach ($fields as $field) {
-            $this->fields[] = [FieldType::Dimension, $field];
-        }
+        $this->fields = [...$this->fields, ...array_values($dimensions)];
 
         return $this;
     }
 
     /**
-     * The numeric fields that values are aggregated from.
-     *
-     * @param  list<string|FieldDefinitionDto>  $fields
+     * The numeric fields that values are aggregated from. Variadic so PHP rejects anything but a Metric.
      */
-    public function metrics(array $fields): self
+    public function metrics(Metric ...$metrics): self
     {
-        foreach ($fields as $field) {
-            $this->fields[] = [FieldType::Metric, $field];
-        }
+        $this->fields = [...$this->fields, ...array_values($metrics)];
 
         return $this;
     }
 
     /**
-     * The relation methods of the model that connect it with other Cubable models,
-     * e.g. ["store", "product" => JoinType::Inner]. Joins are left joins unless given.
-     *
-     * @param  array<int|string, string|JoinType>  $relations
+     * The relation methods of the model that connect it with other Cubable models.
+     * Variadic so PHP rejects anything but a Relation.
      */
-    public function relations(array $relations): self
+    public function relations(Relation ...$relations): self
     {
-        foreach ($relations as $name => $joinType) {
-            if (is_string($joinType)) {
-                $this->relations[$joinType] = JoinType::Left;
-            } elseif (is_string($name)) {
-                $this->relations[$name] = $joinType;
-            }
+        foreach ($relations as $relation) {
+            $this->relations[$relation->name] = $relation;
         }
 
         return $this;
@@ -109,7 +95,7 @@ final class CubeSchema
     }
 
     /**
-     * @return list<array{FieldType, string|FieldDefinitionDto}>
+     * @return list<FieldDefinitionDto>
      */
     public function getFields(): array
     {
@@ -117,10 +103,10 @@ final class CubeSchema
     }
 
     /**
-     * @return array<string, JoinType>
+     * @return list<Relation>
      */
     public function getRelations(): array
     {
-        return $this->relations;
+        return array_values($this->relations);
     }
 }

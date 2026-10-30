@@ -17,10 +17,25 @@ Use this skill when a Laravel application needs reports, pivot tables, or a repo
 
 - After `composer require julitom3/cubes`, run `php artisan cubes:install` to publish the config and translations; add `--force` to overwrite published files.
 - Add the `Julitom3\Cubes\Traits\Cubable` trait to every Eloquent model reports can use, and implement `cubeSchema(): CubeSchema`.
-- Build the schema with `CubeSchema::make()->dimensions([...])->metrics([...])->relations([...])`. A field is a column name (label from the column, format from the model casts) or a `FieldDefinitionDto` for a custom label, format, aggregations, or expression.
-- `relations()` takes the names of `BelongsTo`, `HasOne`, or `HasMany` methods of the model, optionally keyed with a `JoinType`; declare each relation once, it is walked in both directions.
+- Build the schema by passing typed objects from `Julitom3\Cubes\Datasets\DTOs` as separate arguments, not arrays or column-name strings; the methods are variadic, so PHP rejects any other type:
+
+```php
+CubeSchema::make()
+    ->dimensions(
+        new Dimension('payment_method'),
+        new Dimension('year', 'Year', FieldFormat::Year, pivotable: true, expression: 'YEAR(sales.sold_at)'),
+    )
+    ->metrics(
+        new Metric('amount'),
+        new Metric('id', 'Sales count', [Aggregation::Count]),
+    )
+    ->relations(new Relation('store'), new Relation('product', JoinType::Inner));
+```
+
+- Only the column is required. The label defaults to the column headline, and a missing format comes from the model casts (dimensions fall back to text, metrics to integer). Metrics allow sum, avg, min, and max unless given other aggregations; dimensions can only be counted.
+- `Relation` names a `BelongsTo`, `HasOne`, or `HasMany` method of the model and defaults to a left join; declare each relation once, it is walked in both directions.
 - Use `->category()` to name the dataset something other than its table. For SQL views, create a model whose `$table` is the view.
-- With `cubes.auto_discover` true, Cubable models in `cubes.discover_paths` are registered automatically; with it false, list them in `cubes.models`.
+- With `cubes.auto_discover` true, Cubable models in `cubes.discover_paths` are registered automatically; with it false, list them in `cubes.models`. Run `php artisan cubes:list` to check what was registered.
 - Do not write dataset classes or generate them: the Cubable model is the only source.
 
 ### 2. Build reports

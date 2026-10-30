@@ -60,7 +60,9 @@ Cada modelo Eloquent que usa el trait `Cubable` es un dataset. En `cubeSchema()`
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Julitom3\Cubes\Datasets\CubeSchema;
-use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
+use Julitom3\Cubes\Datasets\DTOs\Dimension;
+use Julitom3\Cubes\Datasets\DTOs\Metric;
+use Julitom3\Cubes\Datasets\DTOs\Relation;
 use Julitom3\Cubes\Datasets\Enums\Aggregation;
 use Julitom3\Cubes\Datasets\Enums\FieldFormat;
 use Julitom3\Cubes\Traits\Cubable;
@@ -79,23 +81,23 @@ class Sale extends Model
     public function cubeSchema(): CubeSchema
     {
         return CubeSchema::make()
-            ->dimensions([
-                'payment_method',
-                FieldDefinitionDto::dimension('year', 'Año', FieldFormat::Year, pivotable: true),
-                FieldDefinitionDto::dimension('month', 'Mes', expression: 'MONTH(sales.sold_at)'),
-            ])
-            ->metrics([
-                'amount',
-                FieldDefinitionDto::metric('id', 'Número de ventas', [Aggregation::Count]),
-            ])
-            ->relations(['store']);
+            ->dimensions(
+                new Dimension('payment_method', 'Método de pago'),
+                new Dimension('year', 'Año', FieldFormat::Year, pivotable: true, expression: 'YEAR(sales.sold_at)'),
+            )
+            ->metrics(
+                new Metric('amount', 'Monto'),
+                new Metric('id', 'Número de ventas', [Aggregation::Count]),
+            )
+            ->relations(new Relation('store'));
     }
 }
 ```
 
-- **Un campo puede ser el nombre de una columna** (`'amount'`): toma su etiqueta del nombre de la columna y su formato de los `$casts` del modelo (`decimal:2` → decimal, `datetime` → fecha y hora). Las métricas sin cast usan el formato entero.
-- **O un `FieldDefinitionDto`**, cuando quieres otra etiqueta, otro formato, limitar las agregaciones o usar una `expression`. La `expression` es SQL que tú escribes en el modelo; nunca se toma de lo que envía el reporte.
-- **Las dimensiones se usan como filas y columnas; las métricas se agregan como valores.**
+- **`Dimension`** es un campo por el que se agrupan filas y columnas: `new Dimension(columna, etiqueta, formato, pivotable, expression)`. Como valor solo se puede contar.
+- **`Metric`** es un campo numérico que se agrega como valor: `new Metric(columna, etiqueta, agregaciones, formato, expression)`. Por defecto permite `sum`, `avg`, `min` y `max`; la primera de la lista es la que se usa si el reporte no pide otra.
+- **Solo la columna es obligatoria.** La etiqueta por defecto sale del nombre de la columna (`payment_method` → `Payment Method`). Si no indicas formato, se toma de los `$casts` del modelo (`decimal:2` → decimal, `datetime` → fecha y hora); sin cast, las dimensiones son texto y las métricas enteros.
+- **La `expression`** reemplaza a la columna en el SQL; el nombre de la columna queda como identificador del campo (`sales.year`). Es SQL que tú escribes en el modelo; nunca se toma de lo que envía el reporte.
 - **El dataset se llama como la tabla** (`sales.amount`). Usa `->category('ventas')` para darle otro nombre y no exponer el de la tabla, y `->label('Ventas')` para su etiqueta.
 - **Las vistas SQL también funcionan:** crea un modelo cuyo `$table` sea la vista.
 
@@ -103,13 +105,13 @@ class Sale extends Model
 
 ### Relaciones
 
-En `->relations()` pasas los nombres de los métodos de relación del modelo. Cubes lee las llaves de la propia relación, así que no hace falta que la base de datos tenga llaves foráneas declaradas:
+En `->relations()` pasas un `Relation` por cada método de relación del modelo. Cubes lee las llaves de la propia relación, así que no hace falta que la base de datos tenga llaves foráneas declaradas:
 
 ```php
-->relations([
-    'store',                        // left join stores on sales.store_id = stores.id
-    'product' => JoinType::Inner,   // inner join products on sales.product_id = products.id
-])
+->relations(
+    new Relation('store'),                    // left join stores on sales.store_id = stores.id
+    new Relation('product', JoinType::Inner), // inner join products on sales.product_id = products.id
+)
 ```
 
 - Se aceptan relaciones `BelongsTo`, `HasOne` y `HasMany`. Las uniones son `left join`, salvo que indiques otro `JoinType`.
@@ -133,6 +135,7 @@ En `config/cubes.php` eliges cómo encuentra Cubes tus modelos:
 - Con `auto_discover` en `false`, solo se registran los modelos que listes en `models`.
 - Los modelos se descubren la primera vez que un reporte los necesita, no en cada request.
 - También puedes registrar un modelo en tiempo de ejecución con `Cubes::register(Sale::class)`.
+- `php artisan cubes:list` muestra los modelos registrados con su dataset, tabla, número de dimensiones y métricas, y relaciones. Si un modelo está mal definido, el error aparece ahí.
 
 <a id="es-uso"></a>
 
@@ -299,7 +302,9 @@ Every Eloquent model that uses the `Cubable` trait is a dataset. In `cubeSchema(
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Julitom3\Cubes\Datasets\CubeSchema;
-use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
+use Julitom3\Cubes\Datasets\DTOs\Dimension;
+use Julitom3\Cubes\Datasets\DTOs\Metric;
+use Julitom3\Cubes\Datasets\DTOs\Relation;
 use Julitom3\Cubes\Datasets\Enums\Aggregation;
 use Julitom3\Cubes\Datasets\Enums\FieldFormat;
 use Julitom3\Cubes\Traits\Cubable;
@@ -318,23 +323,23 @@ class Sale extends Model
     public function cubeSchema(): CubeSchema
     {
         return CubeSchema::make()
-            ->dimensions([
-                'payment_method',
-                FieldDefinitionDto::dimension('year', 'Year', FieldFormat::Year, pivotable: true),
-                FieldDefinitionDto::dimension('month', 'Month', expression: 'MONTH(sales.sold_at)'),
-            ])
-            ->metrics([
-                'amount',
-                FieldDefinitionDto::metric('id', 'Sales count', [Aggregation::Count]),
-            ])
-            ->relations(['store']);
+            ->dimensions(
+                new Dimension('payment_method', 'Payment method'),
+                new Dimension('year', 'Year', FieldFormat::Year, pivotable: true, expression: 'YEAR(sales.sold_at)'),
+            )
+            ->metrics(
+                new Metric('amount', 'Amount'),
+                new Metric('id', 'Sales count', [Aggregation::Count]),
+            )
+            ->relations(new Relation('store'));
     }
 }
 ```
 
-- **A field can be a column name** (`'amount'`): it takes its label from the column name and its format from the model `$casts` (`decimal:2` → decimal, `datetime` → date and time). Metrics without a cast use the integer format.
-- **Or a `FieldDefinitionDto`**, when you want another label or format, fewer aggregations, or an `expression`. The `expression` is SQL that you write in the model; it is never taken from report input.
-- **Dimensions are used as rows and columns; metrics are aggregated as values.**
+- **`Dimension`** is a field that rows and columns are grouped by: `new Dimension(column, label, format, pivotable, expression)`. As a value it can only be counted.
+- **`Metric`** is a numeric field aggregated as a value: `new Metric(column, label, aggregations, format, expression)`. It allows `sum`, `avg`, `min`, and `max` by default; the first one in the list is used when the report does not ask for another.
+- **Only the column is required.** The label defaults to the column name (`payment_method` → `Payment Method`). Without a format, it comes from the model `$casts` (`decimal:2` → decimal, `datetime` → date and time); without a cast, dimensions are text and metrics are integers.
+- **The `expression`** replaces the column in the SQL; the column name stays as the identifier of the field (`sales.year`). It is SQL that you write in the model; it is never taken from report input.
 - **The dataset is named after the table** (`sales.amount`). Use `->category('revenue')` to name it otherwise and keep the table name private, and `->label('Revenue')` for its label.
 - **SQL views work too:** create a model whose `$table` is the view.
 
@@ -342,13 +347,13 @@ class Sale extends Model
 
 ### Relations
 
-Pass the names of the relation methods of the model to `->relations()`. Cubes reads the keys from the relation itself, so the database does not need declared foreign keys:
+Pass a `Relation` for each relation method of the model to `->relations()`. Cubes reads the keys from the relation itself, so the database does not need declared foreign keys:
 
 ```php
-->relations([
-    'store',                        // left join stores on sales.store_id = stores.id
-    'product' => JoinType::Inner,   // inner join products on sales.product_id = products.id
-])
+->relations(
+    new Relation('store'),                    // left join stores on sales.store_id = stores.id
+    new Relation('product', JoinType::Inner), // inner join products on sales.product_id = products.id
+)
 ```
 
 - `BelongsTo`, `HasOne`, and `HasMany` relations are supported. Joins are left joins unless you give another `JoinType`.
@@ -372,6 +377,7 @@ In `config/cubes.php` you choose how Cubes finds your models:
 - With `auto_discover` set to `false`, only the models listed in `models` are registered.
 - Models are discovered the first time a report needs them, not on every request.
 - You can also register a model at runtime with `Cubes::register(Sale::class)`.
+- `php artisan cubes:list` shows the registered models with their dataset, table, number of dimensions and metrics, and relations. A model that is defined wrong fails there.
 
 <a id="en-usage"></a>
 

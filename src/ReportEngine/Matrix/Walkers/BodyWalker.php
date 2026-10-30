@@ -83,7 +83,7 @@ final readonly class BodyWalker
             foreach ($layout->definition->values as $position => $value) {
                 $cells[] = new MatrixValueCellDto(
                     value: $metrics[$position]->value ?? null,
-                    format: $value->value->field->format->value,
+                    format: $value->value->field->format()->value,
                 );
             }
         }

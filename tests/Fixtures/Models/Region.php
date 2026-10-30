@@ -6,7 +6,7 @@ namespace Julitom3\Cubes\Tests\Fixtures\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Julitom3\Cubes\Datasets\CubeSchema;
-use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
+use Julitom3\Cubes\Datasets\DTOs\Dimension;
 use Julitom3\Cubes\Traits\Cubable;
 
 class Region extends Model
@@ -18,6 +18,6 @@ class Region extends Model
     public function cubeSchema(): CubeSchema
     {
         return CubeSchema::make()
-            ->dimensions([FieldDefinitionDto::dimension('name', 'Region', pivotable: true)]);
+            ->dimensions(new Dimension('name', 'Region', pivotable: true));
     }
 }

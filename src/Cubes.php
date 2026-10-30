@@ -20,7 +20,7 @@ class Cubes
     ) {}
 
     /**
-     * Start a new, independent report.
+     * Start a new, independent cube.
      */
     public function engine(): ReportEngine
     {

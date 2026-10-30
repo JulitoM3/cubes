@@ -6,6 +6,7 @@ namespace Julitom3\Cubes\DTOs;
 
 use Illuminate\Contracts\Support\Arrayable;
 use Julitom3\Cubes\Datasets\Contracts\DatasetContract;
+use Julitom3\Cubes\Datasets\DTOs\Dimension;
 use Julitom3\Cubes\Datasets\DTOs\FieldDefinitionDto;
 use Julitom3\Cubes\Datasets\Enums\Aggregation;
 
@@ -35,9 +36,9 @@ final readonly class FieldPaletteDto implements Arrayable
             key: $dataset->reference($field),
             dataset: $dataset->category(),
             label: $field->label,
-            type: $field->type->value,
-            format: $field->format->value,
-            pivotable: $field->pivotable,
+            type: $field->type()->value,
+            format: $field->format()->value,
+            pivotable: $field instanceof Dimension && $field->pivotable,
             aggregations: $field->isDimension()
                 ? []
                 : array_map(fn (Aggregation $aggregation): string => $aggregation->value, $field->allowedAggregations()),
